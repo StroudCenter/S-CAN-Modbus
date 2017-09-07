@@ -6,19 +6,12 @@
 #define scanModbus_h
 
 #include <Arduino.h>
+#include <SensorModbusMaster.h>
 
 
 //----------------------------------------------------------------------------
 //                        ENUMERATIONS FOR CONFIGURING DEVICE
 //----------------------------------------------------------------------------
-
-// This needs to be bigger than the largest response
-// Pet the Specification and Implementation Guide for MODBUS over serial line,
-// this value is 256 bytes.  (This translates into a maximum of 125 registers
-// to be read via Modbus/RTU and 123 by Modbus/TCP.)
-// If you know you will never make any modbus calls longer than this, decrease
-// this number to save memory space.
-#define MAX_RESPONSE_SIZE 256
 
 // The communcations modes
 typedef enum specCommMode
@@ -64,32 +57,6 @@ typedef enum spectralSource
     transmission10 = 6,  // The percent transmission per 10 cm2 [%/10cm2]
     other = 7  // I don't know what this is, but the modbus registers on the spec have 8 groups of fingerprints..
 } spectralSource;
-
-// The "endianness" of returned values
-typedef enum endianness
-{
-    littleEndian = 0,
-    bigEndian
-} endianness;
-
-
-// Define a little-endian frame as a union - that is a special class type that
-// can hold only one of its non-static data members at a time.
-// With avr-gcc (Arduino's compiler), integer and floating point variables are
-// all physically stored in memory in little-endian byte order, so this union
-// is all that is needed to translate modbus byte data into the other data forms.
-// NB: The byte order of big-endian data must be reversed when it is put in this
-// frame format.
-typedef union leFrame {
-    byte Byte[4];        // occupies 4 bytes
-    float Float;         // occupies 4 bytes
-    int32_t Int32;       // occupies 4 bytes
-    uint32_t uInt32;     // occupies 4 bytes
-    int16_t Int16[2];    // occupies 4 bytes
-    uint16_t uInt16[2];  // occupies 4 bytes
-    char Char[4];        // occupies 4 bytes
-} leFrame;
-
 
 
 //*****************************************************************************
@@ -376,147 +343,19 @@ public:
 //----------------------------------------------------------------------------
 
     // This sets a stream for debugging information to go to;
-    void setDebugStream(Stream *stream){_debugStream = stream;}
+    void setDebugStream(Stream *stream){modbus.setDebugStream(stream);}
 
     // This sets a stream for debugging information to go to;
-    void stopDebugging(void){_debugStream = &nullstream;}
-
-
+    void stopDebugging(void){modbus.stopDebugging();}
 
 
 
 //----------------------------------------------------------------------------
 //                            PRIVATE FUNCTIONS
 //----------------------------------------------------------------------------
-//These more-or-less define a fairly complete modbus library on their own.
 
-private:
-    // This flips the device/receive enable to DRIVER so the arduino can send text
-    void driverEnable(void);
-
-    // This flips the device/receive enable to RECIEVER so the sensor can send text
-    void recieverEnable(void);
-
-    // This empties the serial buffer
-    void emptyResponseBuffer(Stream *stream);
-
-    // A debugging function for prettily printing raw modbus frames
-    // This is purely for debugging
-    void printFrameHex(byte modbusFrame[], int frameLength);
-
-    // Calculates a Modbus RTC cyclical redudancy code (CRC)
-    void calculateCRC(byte modbusFrame[], int frameLength);
-    // Adds the CRC to a modbus frame
-    void insertCRC(byte modbusFrame[], int frameLength);
-
-    // This sends a command to the sensor bus and listens for a response
-    int sendCommand(byte command[], int commandLength);
-
-    // This gets data from either a holding or input register
-    // For a holding register readCommand = 0x03
-    // For an input register readCommand = 0x04
-    bool getRegisters(byte readCommand, int16_t startRegister, int16_t numRegisters);
-
-    // This sets the value of one or more holding registers
-    // Modbus commands 0x06 and 0x10
-    // Input registers cannot be written by a Modbus controller/master
-    bool setRegisters(int16_t startRegister, int16_t numRegisters, byte value[]);
-
-    // This slices one array out of another
-    void sliceArray(byte inputArray[], byte outputArray[],
-                    int start_index, int numBytes, bool reverseOrder=false);
-
-    // This converts data in a register into a little-endian frame
-    // little-endian frames are needed because all Arduino processors are little-endian
-    leFrame leFrameFromRegister(int varLength,
-                                endianness endian=bigEndian,
-                                int start_index=3,
-                                byte indata[]=responseBuffer);
-
-    // These functions return a variety of data from an input frame
-    uint16_t bitmaskFromFrame(endianness endian=bigEndian,
-                              int start_index=3,
-                              byte indata[]=responseBuffer);
-    uint16_t uint16FromFrame(endianness endian=bigEndian,
-                             int start_index=3,
-                             byte indata[]=responseBuffer);
-    int16_t int16FromFrame(endianness endian=bigEndian,
-                           int start_index=3,
-                           byte indata[]=responseBuffer);
-    uint16_t pointerFromFrame(endianness endian=bigEndian,
-                              int start_index=3,
-                              byte indata[]=responseBuffer);
-    int8_t pointerTypeFromFrame(endianness endian=bigEndian,
-                                int start_index=3,
-                                byte indata[]=responseBuffer);
-    float float32FromFrame(endianness endian=bigEndian,
-                           int start_index=3,
-                           byte indata[]=responseBuffer);
-    uint32_t uint32FromFrame(endianness endian=bigEndian,
-                             int start_index=3,
-                             byte indata[]=responseBuffer);
-    int32_t int32FromFrame(endianness endian=bigEndian,
-                           int start_index=3,
-                           byte indata[]=responseBuffer);
-    uint32_t tai64FromFrame(int start_index=3,
-                            byte indata[]=responseBuffer);
-    String StringFromFrame(int charLength,
-                           int start_index=3,
-                           byte indata[]=responseBuffer);
-    void charFromFrame(char outChar[], int charLength,
-                       int start_index=3,
-                       byte indata[]=responseBuffer);
-
-    // These functions return a variety of data from a data register
-    uint16_t bitmaskFromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    uint16_t uint16FromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    int16_t int16FromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    uint16_t pointerFromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    int8_t pointerTypeFromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    float float32FromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    uint32_t uint32FromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    int32_t int32FromRegister(byte regType, int regNum, endianness endian=bigEndian);
-    uint32_t tai64FromRegister(byte regType, int regNum);
-    String StringFromRegister(byte regType, int regNum, int charLength);
-    void charFromRegister(byte regType, int regNum, char outChar[], int charLength);
-
-    byte _slaveID;  // The sensor slave id
-    Stream *_stream;  // The stream instance (serial port) for communication with the RS485
-    int _enablePin;  // The pin controlling the driver/receiver enable on the RS485-to-TLL chip
-
-    // This creates a null stream to use for "debugging" if you don't want to
-    // actually print to a real stream.
-    struct NullStream : public Stream
-    {
-        NullStream( void ) { return; }
-        int available( void ) { return 0; }
-        void flush( void ) { return; }
-        int peek( void ) { return -1; }
-        int read( void ){ return -1; }
-        size_t write( uint8_t u_Data ){ return 0; }
-        size_t write(const uint8_t *buffer, size_t size) { return 0; }
-    };
-    NullStream nullstream;
-    Stream *_debugStream = &nullstream;  // The stream instance (serial port) for debugging
-
-    // This needs to be bigger than the largest response
-    // For 8 parameters with 8 registers each:
-    // 64 registers * 2 bytes per register + 5 frame bytes
-    static byte responseBuffer[MAX_RESPONSE_SIZE];
-    static byte crcFrame[2];
-
-    // The modbus protocol defines that there can be no more than 1.5 characters
-    // of silence between characters in a frame and any space over 3.5 characters
-    // defines a new frame.
-    // At 34800 baud with 1 start bit, 8 data bits, odd parity, and 2 stop bits
-    // (the transmission mode for the S::CAN spectro::lyzer) 1 character takes ~0.286ms
-    // So the readBytes() command should time out within 1ms
-    const uint32_t modbusTimeout = 500;  // The time to wait for response after a command (in ms)
-    const int modbusFrameTimeout = 4;  // the time to wait between characters within a frame (in ms)
-
-    static float junk_val;
-    static byte junk_byte;
-
+    modbusMaster modbus;
+    byte _slaveID;
 };
 
 #endif

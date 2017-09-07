@@ -23,6 +23,10 @@
     [
         {
             "name": "Time"
+        },
+        {
+            "name": "SensorModbusMaster",
+            "version": "https://github.com/EnviroDIY/SensorModbusMaster.git"
         }
     ]
 }

@@ -22,7 +22,6 @@ Yosemitech modbus sensor.
 
 // Define the sensor's modbus address
 byte modbusAddress = 0x04;  // The sensor's modbus address, or SlaveID
-// Yosemitech ships sensors with a default ID of 0x01.
 
 // Define pin number variables
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
