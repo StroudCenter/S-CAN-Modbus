@@ -198,9 +198,7 @@ bool scan::setSlaveID(byte newSlaveID)
 
 // This returns the current device status as a bitmap
 int scan::getDeviceStatus(void)
-{
-    return modbus.uint16FromRegister(0x04, 120);
-}
+{return modbus.uint16FromRegister(0x04, 120);}
 // This parses the device status bitmask and prints out from the codes
 void scan::printDeviceStatus(uint16_t bitmask, Stream *stream)
 {
@@ -296,14 +294,12 @@ bool scan::wakeSpec(void)
 // System time is in input registers 104-109
 // (96-bit timestamp in TAI64N format - in this case, ignoring the nanoseconds)
 uint32_t scan::getParameterTime(void)
-{
-    return modbus.TAI64FromRegister(0x04, 104);
-}
+{return modbus.TAI64FromRegister(0x04, 104);}
 uint16_t scan::getParameterStatus(int parmNumber)
 {
-    int regNumber = 120 + 8*parmNumber;
+    int startingReg = 120 + 8*parmNumber;
     // Get the register data
-    return modbus.uint16FromRegister(0x04, regNumber, bigEndian);
+    return modbus.uint16FromRegister(0x04, startingReg, bigEndian);
 }
 void scan::printParameterStatus(uint16_t bitmask, Stream *stream)
 {
@@ -346,9 +342,9 @@ void scan::printParameterStatus(uint16_t bitmask, Stream &stream)
 // This gets calibrated data value
 float scan::getParameterValue(int parmNumber)
 {
-    int regNumber = 120 + 8*parmNumber + 2;
+    int startingReg = 120 + 8*parmNumber + 2;
     // Get the register data
-    return modbus.float32FromRegister(0x04, regNumber, bigEndian);
+    return modbus.float32FromRegister(0x04, startingReg, bigEndian);
 }
 // This prints the data from ALL parameters as delimeter separated data.
 // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
@@ -473,6 +469,7 @@ void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource 
     else {stream->print("Error"); stream->print(dlm);}
     // Get the fingerprint values
     float fp[221] = {0,};
+    getFingerprintData(fp, source);
     for (int i = 0; i < 221; i++)
     {
         stream->print(fp[i], 4);
@@ -611,9 +608,7 @@ void scan::printFingerprintHeader(Stream &stream, const char *dlm, spectralSourc
 // Functions for the communication mode
 // The Communication mode is in holding register 1 (1 uint16 register)
 int scan::getCommunicationMode(void)
-{
-    return modbus.uint16FromRegister(0x03, 1);
-}
+{return modbus.uint16FromRegister(0x03, 1);}
 bool scan::setCommunicationMode(specCommMode mode)
 {
     byte byteToSend[2];
@@ -636,9 +631,7 @@ String scan::parseCommunicationMode(uint16_t code)
 // Functions for the serial baud rate (iff communication mode = modbus RTU or modbus ASCII)
 // Baud rate is in holding register 2 (1 uint16 register)
 int scan::getBaudRate(void)
-{
-    return modbus.uint16FromRegister(0x03, 2);
-}
+{return modbus.uint16FromRegister(0x03, 2);}
 bool scan::setBaudRate(specBaudRate baud)
 {
     byte byteToSend[2];
@@ -664,9 +657,7 @@ uint16_t scan::parseBaudRate(uint16_t code)
 // Functions for the serial parity (iff communication mode = modbus RTU or modbus ASCII)
 // Parity is in holding register 3 (1 uint16 register)
 int scan::getParity(void)
-{
-    return modbus.uint16FromRegister(0x03, 3);
-}
+{return modbus.uint16FromRegister(0x03, 3);}
 bool scan::setParity(specParity parity)
 {
     byte byteToSend[2];
@@ -689,13 +680,9 @@ String scan::parseParity(uint16_t code)
 // Pointer to the private configuration is in holding register 5
 // This is read only
 int scan::getprivateConfigRegister(void)
-{
-    return modbus.pointerFromRegister(0x03, 5);
-}
+{return modbus.pointerFromRegister(0x03, 5);}
 int scan::getprivateConfigRegisterType(void)
-{
-    return modbus.pointerTypeFromRegister(0x03, 5);
-}
+{return modbus.pointerTypeFromRegister(0x03, 5);}
 String scan::parseRegisterType(uint16_t code)
 {
     switch (code)
@@ -740,9 +727,7 @@ String scan::getCurrentGlobalCal(void)
 // Device Location (s::canpoint) is registers 6-11 (char[12])
 // This is read only
 String scan::getScanPoint(void)
-{
-    return modbus.StringFromRegister(0x03, 6, 12);
-}
+{return modbus.StringFromRegister(0x03, 6, 12);}
 bool scan::setScanPoint(char charScanPoint[12])
 {
     byte sp[12] = {0,};
@@ -754,9 +739,7 @@ bool scan::setScanPoint(char charScanPoint[12])
 // Functions for the cleaning mode configuration
 // Cleaning mode is in holding register 12 (1 uint16 register)
 int scan::getCleaningMode(void)
-{
-    return modbus.uint16FromRegister(0x03, 12);
-}
+{return modbus.uint16FromRegister(0x03, 12);}
 bool scan::setCleaningMode(cleaningMode mode)
 {
     byte byteToSend[2];
@@ -779,9 +762,7 @@ String scan::parseCleaningMode(uint16_t code)
 // Functions for the cleaning interval (ie, number of samples between cleanings)
 // Cleaning interval is in holding register 13 (1 uint16 register)
 int scan::getCleaningInterval(void)
-{
-    return modbus.uint16FromRegister(0x03, 13);
-}
+{return modbus.uint16FromRegister(0x03, 13);}
 bool scan::setCleaningInterval(uint16_t intervalSamples)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -796,9 +777,7 @@ bool scan::setCleaningInterval(uint16_t intervalSamples)
 // Functions for the cleaning duration in seconds
 // Cleaning duration is in holding register 14 (1 uint16 register)
 int scan::getCleaningDuration(void)
-{
-    return modbus.uint16FromRegister(0x03, 14);
-}
+{return modbus.uint16FromRegister(0x03, 14);}
 bool scan::setCleaningDuration(uint16_t secDuration)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -814,9 +793,7 @@ bool scan::setCleaningDuration(uint16_t secDuration)
 // and the start of a measurement
 // Cleaning wait time is in holding register 15 (1 uint16 register)
 int scan::getCleaningWait(void)
-{
-    return modbus.uint16FromRegister(0x03, 15);
-}
+{return modbus.uint16FromRegister(0x03, 15);}
 bool scan::setCleaningWait(uint16_t secDuration)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -832,9 +809,7 @@ bool scan::setCleaningWait(uint16_t secDuration)
 // System time is in holding registers 16-21
 // (64-bit timestamp in  in TAI64N format - in this case, ignoring the nanoseconds)
 uint32_t scan::getSystemTime(void)
-{
-    return modbus.TAI64FromRegister(0x03, 16);
-}
+{return modbus.TAI64FromRegister(0x03, 16);}
 bool scan::setSystemTime(uint32_t currentUnixTime)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -852,9 +827,7 @@ bool scan::setSystemTime(uint32_t currentUnixTime)
 // Functions for the measurement interval in seconds (0 - as fast as possible)
 // Measurement interval is in holding register 22 (1 uint16 register)
 int scan::getMeasInterval(void)
-{
-    return modbus.uint16FromRegister(0x03, 22);
-}
+{return modbus.uint16FromRegister(0x03, 22);}
 bool scan::setMeasInterval(uint16_t secBetween)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -869,9 +842,7 @@ bool scan::setMeasInterval(uint16_t secBetween)
 // Functions for the logging Mode (0 = on; 1 = off)
 // Logging Mode (0 = on; 1 = off) is in holding register 23 (1 uint16 register)
 int scan::getLoggingMode(void)
-{
-    return modbus.uint16FromRegister(0x03, 23);
-}
+{return modbus.uint16FromRegister(0x03, 23);}
 bool scan::setLoggingMode(uint8_t mode)
 {
     byte byteToSend[2];
@@ -893,9 +864,7 @@ String scan::parseLoggingMode(uint16_t code)
 // (0 = no logging active)
 // Logging interval is in holding register 24 (1 uint16 register)
 int scan::getLoggingInterval(void)
-{
-    return modbus.uint16FromRegister(0x03, 24);
-}
+{return modbus.uint16FromRegister(0x03, 24);}
 bool scan::setLoggingInterval(uint16_t interval)
 {
     // Using a little-endian frame to get into bytes and then reverse the order
@@ -910,9 +879,7 @@ bool scan::setLoggingInterval(uint16_t interval)
 // Available number of logged results in datalogger since last clearing
 // Available number of logged results is in holding register 25 (1 uint16 register)
 int scan::getNumLoggedResults(void)
-{
-    return modbus.uint16FromRegister(0x03, 25);
-}
+{return modbus.uint16FromRegister(0x03, 25);}
 
 // "Index device status public + private & parameter results from logger
 // storage to Modbus registers.  If no stored results are available,
@@ -920,9 +887,7 @@ int scan::getNumLoggedResults(void)
 // I'm really not sure what this means...
 // "Index device status" is in holding register 26 (1 uint16 register)
 int scan::getIndexLogResult(void)
-{
-    return modbus.uint16FromRegister(0x03, 26);
-}
+{return modbus.uint16FromRegister(0x03, 26);}
 
 
 
@@ -935,71 +900,260 @@ int scan::getIndexLogResult(void)
 // The next parameter begins 120 registers after that, up to 8 parameters
 String scan::getParameterName(int parmNumber)
 {
-    int regNumber = 120*parmNumber;
-    modbus.getRegisters(0x03, regNumber, 4);
-    return modbus.StringFromFrame(8);
+    int startingReg = 120*parmNumber;
+    return modbus.StringFromRegister(0x03, startingReg, 8);
 }
 
 // This returns a string with the measurement units.
 // This begins 4 registers after the parameter name
 String scan::getParameterUnits(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 4;
-    modbus.getRegisters(0x03, regNumber, 4);
-    return modbus.StringFromFrame(8);
+    int startingReg = 120*parmNumber + 4;
+    return modbus.StringFromRegister(0x03, startingReg, 8);
 }
 
 // This gets the upper limit of the parameter
 // This begins 8 registers after the parameter name
 float scan::getParameterUpperLimit(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 8;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 8;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the lower limit of the parameter
 // This begins 10 registers after the parameter name
 float scan::getParameterLowerLimit(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 10;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 10;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the offset of the local calibration
 float scan::getParameterCalibOffset(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 14;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 14;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the slope of the local calibration
 float scan::getParameterCalibSlope(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 16;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 16;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the x2 coefficient of the slope of the local calibration
 float scan::getParameterCalibX2(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 18;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 18;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the x3 coefficient of the slope of the local calibration
 float scan::getParameterCalibX3(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 20;
-    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 20;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
 }
 
 // This gets the measurement precision of the parameter
 // Totally a wag as to the location
 uint16_t scan::getParameterPrecision(int parmNumber)
 {
-    int regNumber = 120*parmNumber + 26;
-    return modbus.uint16FromRegister(0x03, regNumber, bigEndian);
+    int startingReg = 120*parmNumber + 26;
+    return modbus.uint16FromRegister(0x03, startingReg, bigEndian);
 }
+
+
+
+
+//----------------------------------------------------------------------------
+//           FUNCTIONS TO GET AND CHANGE REFERENCE CONFIGURATIONS
+//----------------------------------------------------------------------------
+// NB - NONE of this is documented in s::can manuals
+
+// This returns the index number of the reference in use.
+int16_t scan::getCurrentReferenceNumber(void)
+{return modbus.int16FromRegister(0x03, 1507, bigEndian);}
+
+// This returns a pretty string with the name of the reference currently in use
+String scan::getCurrentReferenceName(void)
+{return modbus.StringFromRegister(0x03, 1508, 8);}
+
+// This returns the index number of the reference in use.
+uint32_t scan::getCurrentReferenceTime(void)
+{return modbus.TAI64FromRegister(0x03, 1512);}
+
+// This returns a pretty string with the Reference measured.
+String scan::getReferenceName(int refNumber)
+{
+    int startingReg = 1519 + 536*refNumber;
+    return modbus.StringFromRegister(0x03, startingReg, 8);
+}
+
+// This returns the amount of "dark noise" when the reference was taken
+float scan::getReferenceDarkNoise(int refNumber)
+{
+    int startingReg = 1523 + 536*refNumber;
+    return modbus.float32FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the average "K" value when the reference was taken
+int16_t scan::getReferenceAvgK(int refNumber)
+{
+    int startingReg = 1525 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the average "M" value when the reference was taken
+int16_t scan::getReferenceAvgM(int refNumber)
+{
+    int startingReg = 1526 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the flash rate in Hz when the reference was taken
+int16_t scan::getReferenceFlashRate(int refNumber)
+{
+    int startingReg = 1527 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the lamp voltage during the reference measurement
+int16_t scan::getReferenceLampVoltage(int refNumber)
+{
+    int startingReg = 1528 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the detector type used to take the reference
+//  0 = UV, 1 = UV-Vis
+detectorType scan::getReferenceDetectorType(int refNumber)
+{
+    int startingReg = 1529 + 536*refNumber;
+    int detect;
+    detect = modbus.uint16FromRegister(0x03, startingReg, bigEndian);
+    return (detectorType)detect;
+}
+
+// This returns the "Number of max repetitions" when the reference was taken
+// I have no clue what that means, but that's what this value is
+int16_t scan::getReferenceRepetitions(int refNumber)
+{
+    int startingReg = 1530 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns true if the Lp filter was on when the reference was taken, else false
+bool scan::getReferenceLpFilter(int refNumber)
+{
+    int startingReg = 1531 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the frequency lower limit in Hertz
+int16_t scan::getReferenceFUG(int refNumber)
+{
+    int startingReg = 1532 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the reference type (but I don't know what the return means)
+int16_t scan::getReferenceType(int refNumber)
+{
+    int startingReg = 1533 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the reference offset in abs/m
+int16_t scan::getReferenceOffset(int refNumber)
+{
+    int startingReg = 1534 + 536*refNumber;
+    return modbus.int16FromRegister(0x03, startingReg, bigEndian);
+}
+
+// This returns the Unix timestamp when the reference was recorded
+uint32_t scan::getReferenceTime(int refNumber)
+{
+    int startingReg = 1536 + 536*refNumber;
+    return modbus.TAI64FromRegister(0x03, startingReg);
+}
+
+// This gets abssorbance values in Abs/m for the reference and puts them
+// into a previously initialized float array.  The array must have space
+// for 256 values!
+bool scan::getReferenceValues(float refArray[], int refNumber)
+{
+    int startingReg = 1542 + 536*refNumber;
+
+    // Get the register data in 5 batches
+    // This could be done using 256 modbus calls each returning 2 registers,
+    // but I think it would be better to reduce the serial traffic and make
+    // only 4 modbus calls each returning the maximum number of registers.
+
+    // Registers 1542-1665 (+536*refNumber)
+    modbus.getRegisters(0x04, startingReg, 124);
+    for (int i = 0; i < 62; i++)
+    {
+        refArray[i] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
+    }
+    // Registers 1666-1789 (+536*refNumber)
+    modbus.getRegisters(0x04, startingReg+124, 124);
+    for (int i = 0; i < 62; i++)
+    {
+        refArray[i+62] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
+    }
+    // Registers 1790-1913 (+536*refNumber)
+    modbus.getRegisters(0x04, startingReg+248, 124);
+    for (int i = 0; i < 62; i++)
+    {
+        refArray[i+124] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
+    }
+    // Registers 1914-2037 (+536*refNumber)
+    modbus.getRegisters(0x04, startingReg+372, 124);
+    for (int i = 0; i < 35; i++)
+    {
+        refArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
+    }
+    // Registers 2038-2053 (+536*refNumber)
+    modbus.getRegisters(0x04, startingReg+496, 16);
+    for (int i = 0; i < 35; i++)
+    {
+        refArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
+    }
+
+    // A total and complete WAG as to the location of the status (521)
+    // My other guess is that the status is in 508 (startingReg-14)
+    return modbus.uint16FromRegister(0x04, startingReg-1, bigEndian);
+}
+
+// This prints the reference data as delimeter separated data.
+// By default, the delimeter is a TAB (\t, 0x09).
+// NB:  You can use this to print to a file on a SD card!
+void scan::printReferenceData(int refNumber, Stream *stream, const char *dlm)
+{
+    // Print out the name
+    stream->print(getReferenceName(refNumber));
+    stream->print(dlm);
+    // Print out the timestamp
+    printTime(getReferenceTime(refNumber), stream, false);
+    stream->print(dlm);
+    // Get and print the system status
+    if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
+    else {stream->print("Error"); stream->print(dlm);}
+    // Get the fingerprint values
+    float fp[256] = {0,};
+    getReferenceValues(fp, refNumber);
+    for (int i = 0; i < 256; i++)
+    {
+        stream->print(fp[i], 4);
+        if (i < 220) stream->print(dlm);
+    }
+}
+void scan::printReferenceData(int refNumber, Stream &stream, const char *dlm)
+{printReferenceData(refNumber, &stream, dlm);}
+
+
 
 
 
@@ -1022,9 +1176,7 @@ float scan::getModbusVersion(void)
 
 // This returns a byte with the model type
 uint16_t scan::getModelType(void)
-{
-    return modbus.uint16FromRegister(0x04, 2);
-}
+{return modbus.uint16FromRegister(0x04, 2);}
 
 // This returns a pretty string with the model information
 String scan::getModel(void)
@@ -1065,22 +1217,18 @@ float scan::getSWVersion(void)
 // This gets the number of times the spec has been rebooted
 // (Device rebooter counter)
 int scan::getHWStarts(void)
-{
-    return modbus.uint16FromRegister(0x04, 21);
-}
+{return modbus.uint16FromRegister(0x04, 21);}
 
 // This gets the number of parameters the spectro::lyzer is set to measure
 int scan::getParameterCount(void)
-{
-    return modbus.uint16FromRegister(0x04, 22);
-}
+{return modbus.uint16FromRegister(0x04, 22);}
 
 // This gets the datatype of the parameters and parameter limits
 // This is a check for compatibility
 int scan::getParameterType(void)
-{
-    return modbus.uint16FromRegister(0x04, 23);
-}
+{return modbus.uint16FromRegister(0x04, 23);}
+
+// This returns the parameter type as a string
 String scan::parseParameterType(uint16_t code)
 {
     switch (code)
@@ -1096,9 +1244,7 @@ String scan::parseParameterType(uint16_t code)
 
 // This gets the scaling factor for all parameters which depend on eParameterType
 int scan::getParameterScale(void)
-{
-    return modbus.uint16FromRegister(0x04, 24);
-}
+{return modbus.uint16FromRegister(0x04, 24);}
 
 // This returns the spectral path length in mm
 // NB This is not documented - I'm guessing based on register VALUES

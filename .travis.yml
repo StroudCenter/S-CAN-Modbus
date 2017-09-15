@@ -8,7 +8,8 @@ cache:
         - "~/.platformio"
 
 env:
-    - PLATFORMIO_CI_SRC=examples/GetValues/GetValues.ino
+    - PLATFORMIO_CI_SRC=examples/GetParameterValues/GetParameterValues.ino
+    - PLATFORMIO_CI_SRC=examples/SaveFingerprints/SaveFingerprints.ino
 
 install:
     - pip install -U platformio

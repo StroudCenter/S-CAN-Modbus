@@ -326,11 +326,11 @@ public:
 //----------------------------------------------------------------------------
 // NB - NONE of this is documented in s::can manuals
 
-    // This returns a pretty string with the name of the reference currently in use
-    String getCurrentReferenceName(void);
-
     // This returns the index number of the reference in use.
     int16_t getCurrentReferenceNumber(void);
+
+    // This returns a pretty string with the name of the reference currently in use
+    String getCurrentReferenceName(void);
 
     // This returns the index number of the reference in use.
     uint32_t getCurrentReferenceTime(void);
@@ -350,6 +350,9 @@ public:
     // This returns the flash rate in Hz when the reference was taken
     int16_t getReferenceFlashRate(int refNumber);
 
+    // This returns the lamp voltage during the reference measurement
+    int16_t getReferenceLampVoltage(int refNumber);
+
     // This returns the detector type used to take the reference
     //  0 = UV, 1 = UV-Vis
     detectorType getReferenceDetectorType(int refNumber);
@@ -364,6 +367,9 @@ public:
     // This returns the frequency lower limit in Hertz
     int16_t getReferenceFUG(int refNumber);
 
+    // This returns the reference type (but I don't know what the return means)
+    int16_t getReferenceType(int refNumber);
+
     // This returns the reference offset in abs/m
     int16_t getReferenceOffset(int refNumber);
 
@@ -373,7 +379,7 @@ public:
     // This gets abssorbance values in Abs/m for the reference and puts them
     // into a previously initialized float array.  The array must have space
     // for 256 values!
-    bool getReferenceValues(float fpArray[], spectralSource source=fingerprint);
+    bool getReferenceValues(float refArray[], int refNumber);
 
     // This prints the reference data as delimeter separated data.
     // By default, the delimeter is a TAB (\t, 0x09).

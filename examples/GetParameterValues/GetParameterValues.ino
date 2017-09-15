@@ -55,7 +55,7 @@ void setup()
     sensor.begin(modbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
-    // sensor.setDebugStream(&Serial);
+    sensor.setDebugStream(&Serial);
 
     // Start up note
     Serial.println("S::CAN Spect::lyzer Test");
@@ -142,25 +142,21 @@ void loop()
     sensor.printDeviceStatus(status, Serial);
 
     Serial.print("Last sample was taken at ");
-    Serial.print((unsigned long)(sensor.getSampleTime()));
+    Serial.print((unsigned long)(sensor.getParameterTime()));
     Serial.println(" seconds past Jan 1, 1970");
-
-    // set up the values
-    float value;
 
     // Get values one at a time
     for (int i = 1; i < sensor.getParameterCount()+1; i++)
     {
         Serial.println("----");
-        status = sensor.getParameterValue(i, value);
         Serial.print("Value of parameter Number ");
         Serial.print(i);
         Serial.print(" is: ");
-        Serial.print(value);
+        Serial.print(sensor.getParameterValue(i));
         Serial.print(" ");
         Serial.print(sensor.getParameterUnits(i));
         Serial.print(" with status code: ");
-        Serial.println(status, BIN);
+        Serial.println(sensor.getParameterStatus(i), BIN);
         sensor.printParameterStatus(status, Serial);
     }
 
