@@ -59,10 +59,10 @@ getLoggingInterval	KEYWORD2
 setLoggingInterval	KEYWORD2
 getNumLoggedResults	KEYWORD2
 getIndexLogResult	KEYWORD2
-getParameter	KEYWORD2
-getUnits	KEYWORD2
-getUpperLimit	KEYWORD2
-getLowerLimit	KEYWORD2
+getParameterName	KEYWORD2
+getParameterUnits	KEYWORD2
+getParameterUpperLimit	KEYWORD2
+getParameterLowerLimit	KEYWORD2
 getModbusVersion	KEYWORD2
 getModel	KEYWORD2
 getSerialNumber	KEYWORD2

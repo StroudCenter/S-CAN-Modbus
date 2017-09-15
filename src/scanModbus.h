@@ -6,7 +6,8 @@
 #define scanModbus_h
 
 #include <Arduino.h>
-#include <SensorModbusMaster.h>
+#include <SensorModbusMaster.h>  // For modbus communication
+#include <TimeLib.h>  // for dealing with the TAI64/Unix time
 
 
 //----------------------------------------------------------------------------
@@ -57,6 +58,13 @@ typedef enum spectralSource
     transmission10 = 6,  // The percent transmission per 10 cm2 [%/10cm2]
     other = 7  // I don't know what this is, but the modbus registers on the spec have 8 groups of fingerprints..
 } spectralSource;
+
+// The possible spectral sources
+typedef enum detectorType
+{
+    UV = 0,
+    UVVis = 1
+} detectorType;
 
 
 //*****************************************************************************
@@ -129,11 +137,10 @@ public:
 //----------------------------------------------------------------------------
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
-    uint32_t getSampleTime(void);
+    uint32_t getParameterTime(void);
     // This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
-    void printSampleTime(Stream *stream, bool addNL=true);
-    void printSampleTime(Stream &stream, bool addNL=true);
-
+    void printParameterTime(Stream *stream, bool addNL=true);
+    void printParameterTime(Stream &stream, bool addNL=true);
     // This gets values back from the sensor and puts them into a previously
     // initialized float variable.  The actual return from the function is an
     // integer which is a bit-mask describing the parameter status.
@@ -148,8 +155,19 @@ public:
     void printParameterData(Stream *stream, const char *dlm="    ");
     void printParameterData(Stream &stream, const char *dlm="    ");
 
+    // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
+    uint32_t getFingerprintTime(spectralSource source=fingerprint);
+    // This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
+    void printFingerprintTime(Stream *stream, bool addNL=true, spectralSource source=fingerprint);
+    void printFingerprintTime(Stream &stream, bool addNL=true, spectralSource source=fingerprint);
+    // This returns detector type used for the fingerprint
+    detectorType getFingerprintDetectorType(spectralSource source=fingerprint);
+    // This returns the spectral source type used for the fingerprint
+    spectralSource getFingerprintSource(spectralSource source=fingerprint);
+    // This returns the spectral source type used for the fingerprint
+    int getFingerprintPathLength(spectralSource source=fingerprint);
     // This gets spectral values from the sensor and puts them into a previously
-    // initialized float array.  The array must have space for 200 values!
+    // initialized float array.  The array must have space for 221 values!
     // The actual return from the function is an integer which is a bit-mask
     // describing the fingerprint status (or, well, it would be if I could figure
     // out which register that value lived in).
@@ -214,20 +232,20 @@ public:
 
     // This reads the global calibration name from the private registers
     // NB This is NOT documented
-    String getGlobalCal(void);
+    String getCurrentGlobalCal(void);
 
-    // Functions for the "s::canpoint" of the device
+    // Functions for the "s::canpoint" (ie, current installation site) of the device
     String getScanPoint(void);
     bool setScanPoint(char charScanPoint[12]);
 
     // Functions for the cleaning mode configuration
-    // My spec is not responding to the set command at this time
+    // My spec does NOT respond properly to this command.
     int getCleaningMode(void);
     bool setCleaningMode(cleaningMode mode);
     String parseCleaningMode(uint16_t code);
 
     // Functions for the cleaning interval (ie, number of samples between cleanings)
-    // My spec is not responding to the set command at this time
+    // My spec does NOT respond properly to this command.
     int getCleaningInterval(void);
     bool setCleaningInterval(uint16_t intervalSamples);
 
@@ -279,18 +297,92 @@ public:
 // changes to the logger configurations.
 
     // This returns a pretty string with the parameter measured.
-    String getParameter(int parmNumber);
+    String getParameterName(int parmNumber);
 
     // This returns a pretty string with the measurement units.
-    String getUnits(int parmNumber);
+    String getParameterUnits(int parmNumber);
 
     // This gets the upper limit of the parameter
     // The float variable must be initialized prior to calling this function.
-    float getUpperLimit(int parmNumber);
+    float getParameterUpperLimit(int parmNumber);
 
     // This gets the lower limit of the parameter
     // The float variable must be initialized prior to calling this function.
-    float getLowerLimit(int parmNumber);
+    float getParameterLowerLimit(int parmNumber);
+
+    // This gets the offset of the local calibration
+    float getParameterCalibOffset(int parmNumber);
+
+    // This gets the slope of the local calibration
+    float getParameterCalibSlope(int parmNumber);
+
+    // This gets the x2 coefficient of the slope of the local calibration
+    float getParameterCalibX2(int parmNumber);
+
+    // This gets the x3 coefficient of the slope of the local calibration
+    float getParameterCalibX3(int parmNumber);
+
+
+
+//----------------------------------------------------------------------------
+//           FUNCTIONS TO GET AND CHANGE REFERENCE CONFIGURATIONS
+//----------------------------------------------------------------------------
+// NB - NONE of this is documented in s::can manuals
+
+    // This returns a pretty string with the name of the reference currently in use
+    String getCurrentReferenceName(void);
+
+    // This returns the index number of the reference in use.
+    int16_t getCurrentReferenceNumber(void);
+
+    // This returns the index number of the reference in use.
+    uint32_t getCurrentReferenceTime(void);
+
+    // This returns a pretty string with the Reference measured.
+    String getReferenceName(int refNumber);
+
+    // This returns the amount of "dark noise" when the reference was taken
+    float getReferenceDarkNoise(int refNumber);
+
+    // This returns the average "K" value when the reference was taken
+    int16_t getReferenceAvgK(int refNumber);
+
+    // This returns the average "M" value when the reference was taken
+    int16_t getReferenceAvgM(int refNumber);
+
+    // This returns the flash rate in Hz when the reference was taken
+    int16_t getReferenceFlashRate(int refNumber);
+
+    // This returns the detector type used to take the reference
+    //  0 = UV, 1 = UV-Vis
+    detectorType getReferenceDetectorType(int refNumber);
+
+    // This returns the "Number of max repetitions" when the reference was taken
+    // I have no clue what that means, but that's what this value is
+    int16_t getReferenceRepetitions(int refNumber);
+
+    // This returns true if the Lp filter was on when the reference was taken, else false
+    bool getReferenceLpFilter(int refNumber);
+
+    // This returns the frequency lower limit in Hertz
+    int16_t getReferenceFUG(int refNumber);
+
+    // This returns the reference offset in abs/m
+    int16_t getReferenceOffset(int refNumber);
+
+    // This returns the Unix timestamp when the reference was recorded
+    uint32_t getReferenceTime(int refNumber);
+
+    // This gets abssorbance values in Abs/m for the reference and puts them
+    // into a previously initialized float array.  The array must have space
+    // for 256 values!
+    bool getReferenceValues(float fpArray[], spectralSource source=fingerprint);
+
+    // This prints the reference data as delimeter separated data.
+    // By default, the delimeter is a TAB (\t, 0x09).
+    // NB:  You can use this to print to a file on a SD card!
+    void printReferenceData(int refNumber, Stream *stream, const char *dlm="    ");
+    void printReferenceData(int refNumber, Stream &stream, const char *dlm="    ");
 
 
 

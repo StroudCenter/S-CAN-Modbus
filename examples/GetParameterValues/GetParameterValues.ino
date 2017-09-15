@@ -158,7 +158,7 @@ void loop()
         Serial.print(" is: ");
         Serial.print(value);
         Serial.print(" ");
-        Serial.print(sensor.getUnits(i));
+        Serial.print(sensor.getParameterUnits(i));
         Serial.print(" with status code: ");
         Serial.println(status, BIN);
         sensor.printParameterStatus(status, Serial);

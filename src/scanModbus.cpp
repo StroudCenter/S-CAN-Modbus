@@ -3,7 +3,6 @@
 */
 
 #include "scanModbus.h"
-#include <TimeLib.h>  // for dealing with the unix time
 
 //----------------------------------------------------------------------------
 //                          GENERAL USE FUNCTIONS
@@ -160,13 +159,13 @@ bool scan::printSetup(Stream *stream)
         stream->print("Parameter Number ");
         stream->print(i);
         stream->print(" is ");
-        stream->print(getParameter(i));
+        stream->print(getParameterName(i));
         stream->print(" and has units of ");
-        stream->print(getUnits(i));
+        stream->print(getParameterUnits(i));
         stream->print(". The lower limit is ");
-        stream->print(getLowerLimit(i));
+        stream->print(getParameterLowerLimit(i));
         stream->print(" and the upper limit is ");
-        stream->print(getUpperLimit(i));
+        stream->print(getParameterUpperLimit(i));
         stream->println(".");
     }
 
@@ -381,7 +380,7 @@ void scan::printParameterStatus(uint16_t bitmask, Stream *stream)
         stream->println("Incorrect calibration, at least one calibration coefficient invalid");
     // b3
     if ((bitmask & 8) == 8)
-        stream->println("Paremeter error, the sensor is outside of the medium or in incorrect medium");
+        stream->println("Parameter error, the sensor is outside of the medium or in incorrect medium");
     // b2
     if ((bitmask & 4) == 4)
         stream->println("Parameter error, calibration error");
@@ -514,7 +513,7 @@ void scan::printHeader(Stream *stream)
     stream->print("_");
     stream->print(getModel());
     stream->print("_");
-    stream->print(getGlobalCal());
+    stream->print(getCurrentGlobalCal());
     stream->println("	This file contains data of the current measurement.");
 
 }
@@ -529,18 +528,18 @@ void scan::printParameterHeader(Stream *stream, const char *dlm)
     int nparms = getParameterCount();
     for (int i = 0; i < nparms; i++)
     {
-        stream->print(getParameter(i+1));
+        stream->print(getParameterName(i+1));
         stream->print("[");
-        stream->print(getUnits(i+1));
+        stream->print(getParameterUnits(i+1));
         stream->print("]");
-        stream->print(getLowerLimit(i+1));
+        stream->print(getParameterLowerLimit(i+1));
         stream->print("-");
-        stream->print(getUpperLimit(i+1));
+        stream->print(getParameterUpperLimit(i+1));
         stream->print("_1");  // This is nominally supposed to be the precision
         // of the measurement, but I don't know how to get that so I'm saying
         // "1", which seems to be the value in many of my files
         stream->print(dlm);
-        stream->print(getParameter(i+1));
+        stream->print(getParameterName(i+1));
         stream->print("_0.0_1.0_0.0_0.0");  // These should be the calibration
         // slope and offset for a local cal, but I have no idea how to get those
         // values, so I'm just setting to the global cal.
@@ -679,7 +678,7 @@ String scan::parseRegisterType(uint16_t code)
 
 // This reads the global calibration name from the private registers
 // NB This is NOT documented
-String scan::getGlobalCal(void)
+String scan::getCurrentGlobalCal(void)
 {
     int regNum = getprivateConfigRegister();
     byte regType;
@@ -902,7 +901,7 @@ int scan::getIndexLogResult(void)
 // This returns a string with the parameter measured.
 // The information on the first parameter is in register 120
 // The next parameter begins 120 registers after that, up to 8 parameters
-String scan::getParameter(int parmNumber)
+String scan::getParameterName(int parmNumber)
 {
     int regNumber = 120*parmNumber;
     modbus.getRegisters(0x03, regNumber, 4);
@@ -911,7 +910,7 @@ String scan::getParameter(int parmNumber)
 
 // This returns a string with the measurement units.
 // This begins 4 registers after the parameter name
-String scan::getUnits(int parmNumber)
+String scan::getParameterUnits(int parmNumber)
 {
     int regNumber = 120*parmNumber + 4;
     modbus.getRegisters(0x03, regNumber, 4);
@@ -920,7 +919,7 @@ String scan::getUnits(int parmNumber)
 
 // This gets the upper limit of the parameter
 // This begins 8 registers after the parameter name
-float scan::getUpperLimit(int parmNumber)
+float scan::getParameterUpperLimit(int parmNumber)
 {
     int regNumber = 120*parmNumber + 8;
     return modbus.float32FromRegister(0x03, regNumber);
@@ -928,7 +927,7 @@ float scan::getUpperLimit(int parmNumber)
 
 // This gets the lower limit of the parameter
 // This begins 10 registers after the parameter name
-float scan::getLowerLimit(int parmNumber)
+float scan::getParameterLowerLimit(int parmNumber)
 {
     int regNumber = 120*parmNumber + 10;
     return modbus.float32FromRegister(0x03, regNumber);

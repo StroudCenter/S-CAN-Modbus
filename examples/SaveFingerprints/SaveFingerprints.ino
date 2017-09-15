@@ -1,5 +1,5 @@
 /*****************************************************************************
-GetValues.ino
+getParameterValues.ino
 
 This prints basic meta-data about a sensor to the first serial port and then
 begins taking measurements from the sensor.
@@ -12,8 +12,8 @@ Yosemitech modbus sensor.
 // Include the base required libraries
 // ---------------------------------------------------------------------------
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include <scanModbus.h>
+#include <SdFat.h> // To communicate with the SD card
 
 // ---------------------------------------------------------------------------
 // Set up the sensor specific information
@@ -29,19 +29,22 @@ const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enabl
                           // on the RS485 adapter, if applicable (else, -1)
                           // Setting HIGH enables the driver (arduino) to send text
                           // Setting LOW enables the receiver (sensor) to send text
-const int SSRxPin = 10;  // Recieve pin for software serial (Rx on RS485 adapter)
-const int SSTxPin = 11;  // Send pin for software serial (Tx on RS485 adapter)
-
-// Construct software serial object for Modbus
-// SoftwareSerial modbusSerial(SSRxPin, SSTxPin);
-
-// AltSoftSerial object for Modbus
-// #include <AltSoftSerial.h>  // include the AltSoftSerial library
-// AltSoftSerial modbusSerial;
 
 // Construct the Yosemitech modbus instance
 scan sensor;
 bool success;
+
+// A global variable for the filename
+String fileName;
+
+// Setting up the SD card
+SdFat sd;
+SdFile file;
+
+void createFiles(void)
+{
+
+}
 
 // ---------------------------------------------------------------------------
 // Main setup function
@@ -51,19 +54,19 @@ void setup()
     if (DEREPin > 0) pinMode(DEREPin, OUTPUT);
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
-    // modbusSerial.begin(38400);  // The modbus serial stream
-    // modbusSerial.begin(38400);  // The modbus serial stream
     Serial1.begin(38400, SERIAL_8N2);
+    // modbusSerial.begin(38400);  // The modbus serial stream
     // The default baud rate for the spectro::lyzer is 38400
 
     // Start up the sensor
-    sensor.begin(modbusAddress, &Serial1, DEREPin);
+    // sensor.begin(modbusAddress, &modbusSerial, DEREPin);
+    sensor.begin(modbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
     // sensor.setDebugStream(&Serial);
 
     // Start up note
-    Serial.println("S::CAN Spect::lyzer Test");
+    Serial.println("S::CAN Spect::lyzer Data Recording");
 
     // Allow the sensor and converter to warm up
     Serial.println("Waiting for sensor and adapter to be ready.");
@@ -71,6 +74,8 @@ void setup()
 
     // Print out all of the setup information
     sensor.printSetup(Serial);
+    sensor.printParameterHeader(Serial);
+    sensor.printFingerprintHeader(Serial);
 
     // Print out the device status
     uint16_t status;
@@ -79,46 +84,16 @@ void setup()
     Serial.println(status, BIN);
     sensor.printDeviceStatus(status, Serial);
     Serial.println("=======================");
-    Serial.println("=======================");
-
-    Serial.print("Last sample was taken at ");
-    Serial.print((unsigned long)(sensor.getSampleTime()));
-    Serial.println(" seconds past Jan 1, 1970");
-
-    // set up the values
-    float value1;
-
-    // Get values one at a time
-    for (int i = 1; i < 9; i++)
-    {
-        Serial.println("----");
-        status = sensor.getValue(i, value1);
-        Serial.print("Value of parameter Number ");
-        Serial.print(i);
-        Serial.print(" is: ");
-        Serial.print(value1, 20);
-        Serial.print(" ");
-        Serial.print(sensor.getUnits(i));
-        Serial.print(" with status code: ");
-        Serial.println(status, BIN);
-        sensor.printParameterStatus(status, Serial);
-    }
-    Serial.println("=======================");
-    Serial.println("=======================");
-
-    for (int i = 1; i < 4700; i++)
-    {
-        Serial.print(i);
-        Serial.print(" - ");
-        Serial.println(sensor.uint16FromRegister(0x04, i));
-    }
-    Serial.println("=======================");
-    Serial.println("=======================");
-
 }
 
 // ---------------------------------------------------------------------------
 // Main loop function
 // ---------------------------------------------------------------------------
 void loop()
-{}
+{
+    sensor.printParameterData(Serial);
+    sensor.printFingerprintData(Serial);
+
+    // Wait 2 minutes
+    delay(120000);
+}
