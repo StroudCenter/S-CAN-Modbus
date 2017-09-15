@@ -138,16 +138,12 @@ public:
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
     uint32_t getParameterTime(void);
-    // This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
-    void printParameterTime(Stream *stream, bool addNL=true);
-    void printParameterTime(Stream &stream, bool addNL=true);
-    // This gets values back from the sensor and puts them into a previously
-    // initialized float variable.  The actual return from the function is an
-    // integer which is a bit-mask describing the parameter status.
-    int getParameterValue(int parmNumber, float &value);
+    uint16_t getParameterStatus(int parmNumber);
     // This parses the parameter status bitmap and prints the resuts to the stream
     void printParameterStatus(uint16_t bitmask, Stream *stream);
     void printParameterStatus(uint16_t bitmask, Stream &stream);
+    // This gets calibrated data value
+    float getParameterValue(int parmNumber);
     // This prints the data from ALL parameters as delimeter separated data.
     // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
     // This includes the parameter timestamp and status.
@@ -157,25 +153,21 @@ public:
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
     uint32_t getFingerprintTime(spectralSource source=fingerprint);
-    // This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
-    void printFingerprintTime(Stream *stream, bool addNL=true, spectralSource source=fingerprint);
-    void printFingerprintTime(Stream &stream, bool addNL=true, spectralSource source=fingerprint);
     // This returns detector type used for the fingerprint
     detectorType getFingerprintDetectorType(spectralSource source=fingerprint);
     // This returns the spectral source type used for the fingerprint
     spectralSource getFingerprintSource(spectralSource source=fingerprint);
     // This returns the spectral source type used for the fingerprint
     int getFingerprintPathLength(spectralSource source=fingerprint);
+    // This returns the parameter status for the fingerprint
+    // That is, pending me figuring out the right register for that data...
+    uint16_t getFingerprintStatus(spectralSource source=fingerprint);
     // This gets spectral values from the sensor and puts them into a previously
     // initialized float array.  The array must have space for 221 values!
     // The actual return from the function is an integer which is a bit-mask
     // describing the fingerprint status (or, well, it would be if I could figure
     // out which register that value lived in).
     int getFingerprintData(float fpArray[], spectralSource source=fingerprint);
-    // This parses the parameter status bitmap and prints the resuts to the stream
-    // That is, pending me figuring out the right register for that data...
-    void printFingerprintStatus(uint16_t bitmask, Stream *stream);
-    void printFingerprintStatus(uint16_t bitmask, Stream &stream);
     // This prints the fingerprint data as delimeter separated data.
     // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
     // This includes the fingerprint timestamp and status
@@ -185,9 +177,13 @@ public:
     void printFingerprintData(Stream &stream, const char *dlm="    ",
                               spectralSource source=fingerprint);
 
+
+    // This prints out a time, formatted as YYYY.MM.DD hh:mm:ss
+    void printTime(uint32_t time, Stream *stream, bool addNL=true);
+    void printTime(uint32_t time, Stream &stream, bool addNL=true);
     // This is for the first line of both headers (below)
-    void printHeader(Stream *stream);
-    void printHeader(Stream &stream);
+    void printFirstLine(Stream *stream);
+    void printFirstLine(Stream &stream);
     // This prints out a header for a "par" file ini the format that the
     // s::can/ana::xxx software is expecting
     // The delimeter is changable, but if you use anything other than the
@@ -303,11 +299,9 @@ public:
     String getParameterUnits(int parmNumber);
 
     // This gets the upper limit of the parameter
-    // The float variable must be initialized prior to calling this function.
     float getParameterUpperLimit(int parmNumber);
 
     // This gets the lower limit of the parameter
-    // The float variable must be initialized prior to calling this function.
     float getParameterLowerLimit(int parmNumber);
 
     // This gets the offset of the local calibration
@@ -321,6 +315,9 @@ public:
 
     // This gets the x3 coefficient of the slope of the local calibration
     float getParameterCalibX3(int parmNumber);
+
+    // This gets the measurement precision of the parameter
+    uint16_t getParameterPrecision(int parmNumber);
 
 
 

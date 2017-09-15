@@ -295,68 +295,15 @@ bool scan::wakeSpec(void)
 // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
 // System time is in input registers 104-109
 // (96-bit timestamp in TAI64N format - in this case, ignoring the nanoseconds)
-uint32_t scan::getSampleTime(void)
+uint32_t scan::getParameterTime(void)
 {
     return modbus.TAI64FromRegister(0x04, 104);
 }
-// This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
-void scan::printSampleTime(Stream *stream, bool addNL)
-{
-    // Get the sample timestamp
-    uint32_t ts = getSampleTime();
-    // Print it out in the right format
-    stream->print(year(ts));
-    stream->print(".");
-    stream->print(month(ts));
-    stream->print(".");
-    stream->print(day(ts));
-    if (hour(ts) < 10)
-    {
-        stream->print(" 0");
-        stream->print(hour(ts));
-    }
-    else
-    {
-        stream->print(" ");
-        stream->print(hour(ts));
-    }
-    if (minute(ts) < 10)
-    {
-        stream->print(":0");
-        stream->print(minute(ts));
-    }
-    else
-    {
-        stream->print(":");
-        stream->print(minute(ts));
-    }
-    if (second(ts) < 10)
-    {
-        stream->print(":0");
-        stream->print(second(ts));
-    }
-    else
-    {
-        stream->print(":");
-        stream->print(second(ts));
-    }
-    if (addNL) stream->println();
-}
-void scan::printSampleTime(Stream &stream, bool addNL)
-{printSampleTime(&stream, addNL);}
-
-// This gets values back from the sensor and puts them into a previously
-// initialized float variable.  The actual return from the function is the
-// int which is a bit-mask describing the parameter status.
-int scan::getParameterValue(int parmNumber, float &value)
+uint16_t scan::getParameterStatus(int parmNumber)
 {
     int regNumber = 120 + 8*parmNumber;
     // Get the register data
-    modbus.getRegisters(0x04, regNumber, 8);
-
-    uint16_t status = modbus.uint16FromFrame();
-    value = modbus.float32FromFrame(bigEndian, 7);
-    return status;
+    return modbus.uint16FromRegister(0x04, regNumber, bigEndian);
 }
 void scan::printParameterStatus(uint16_t bitmask, Stream *stream)
 {
@@ -396,6 +343,13 @@ void scan::printParameterStatus(uint16_t bitmask, Stream *stream)
 }
 void scan::printParameterStatus(uint16_t bitmask, Stream &stream)
 {printParameterStatus(bitmask, &stream);}
+// This gets calibrated data value
+float scan::getParameterValue(int parmNumber)
+{
+    int regNumber = 120 + 8*parmNumber + 2;
+    // Get the register data
+    return modbus.float32FromRegister(0x04, regNumber, bigEndian);
+}
 // This prints the data from ALL parameters as delimeter separated data.
 // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
 // This includes the parameter timestamp and status.
@@ -403,7 +357,7 @@ void scan::printParameterStatus(uint16_t bitmask, Stream &stream)
 void scan::printParameterData(Stream *stream, const char *dlm)
 {
     // Print out the timestamp
-    printSampleTime(stream, false);
+    printTime(getParameterTime(), stream, false);
     stream->print(dlm);
     // Get and print the system status
     int sysStat = getSystemStatus();
@@ -413,8 +367,7 @@ void scan::printParameterData(Stream *stream, const char *dlm)
     int nparms = getParameterCount();
     for (int i = 0; i < nparms; i++)
     {
-        float value;
-        getParameterValue(i+1, value);
+        float value = getParameterValue(i+1);
         stream->print(value, 3);
         stream->print(dlm);
         stream->print(sysStat);
@@ -426,8 +379,45 @@ void scan::printParameterData(Stream &stream, const char *dlm)
 {printParameterData(&stream, dlm);}
 
 
+// Last measurement time as a 32-bit count of seconds from Jan 1, 1970
+// (96-bit timestamp in TAI64N format - in this case, ignoring the nanoseconds)
+uint32_t scan::getFingerprintTime(spectralSource source)
+{
+    int startingReg = 512 + 512*source;
+    return modbus.TAI64FromRegister(0x04, startingReg);
+}
+// This returns detector type used for the fingerprint
+detectorType scan::getFingerprintDetectorType(spectralSource source)
+{
+    int startingReg = 518 + 512*source;
+    int detect;
+    detect = modbus.uint16FromRegister(0x04, startingReg, bigEndian);
+    return (detectorType)detect;
+}
+// This returns the spectral source type used for the fingerprint
+spectralSource scan::getFingerprintSource(spectralSource source)
+{
+    int startingReg = 519 + 512*source;
+    int src;
+    src = modbus.uint16FromRegister(0x04, startingReg, bigEndian);
+    return (spectralSource)src;
+}
+// This returns the spectral source type used for the fingerprint
+int scan::getFingerprintPathLength(spectralSource source)
+{
+    int startingReg = 520 + 512*source;
+    return modbus.uint16FromRegister(0x04, startingReg, bigEndian);
+}
+// This returns the parameter status for the fingerprint
+uint16_t scan::getFingerprintStatus(spectralSource source)
+{
+    // A total and complete WAG as to the location of the status (521)
+    // My other guess is that the status is in 508
+    int startingReg = 521 + 512*source;
+    return modbus.uint16FromRegister(0x04, startingReg, bigEndian);
+}
 // This gets spectral values from the sensor and puts them into a previously
-// initialized float array.  The array must have space for 200 values!
+// initialized float array.  The array must have space for 221 values!
 // The actual return from the function is an integer which is a bit-mask
 // describing the fingerprint status (or, well, it would be if I could figure
 // out which register that value lived in).
@@ -459,7 +449,7 @@ int scan::getFingerprintData(float fpArray[], spectralSource source)
         fpArray[i+124] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
     }
     // Registers 894-963 (+512*source)
-    modbus.getRegisters(0x04, startingReg+248, 70);
+    modbus.getRegisters(0x04, startingReg+372, 70);
     for (int i = 0; i < 35; i++)
     {
         fpArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
@@ -469,12 +459,6 @@ int scan::getFingerprintData(float fpArray[], spectralSource source)
     // My other guess is that the status is in 508 (startingReg-14)
     return modbus.uint16FromRegister(0x04, startingReg-1, bigEndian);
 }
-// This parses the parameter status bitmap and prints the resuts to the stream
-// That is, pending me figuring out the right register for that data...
-void scan::printFingerprintStatus(uint16_t bitmask, Stream *stream)
-{printParameterStatus(bitmask, stream);}
-void scan::printFingerprintStatus(uint16_t bitmask, Stream &stream)
-{printParameterStatus(bitmask, &stream);}
 // This prints the fingerprint data as delimeter separated data.
 // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
 // This includes the fingerprint timestamp and status
@@ -482,7 +466,7 @@ void scan::printFingerprintStatus(uint16_t bitmask, Stream &stream)
 void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource source)
 {
     // Print out the timestamp
-    printSampleTime(stream, false);
+    printTime(getFingerprintTime(source), stream, false);
     stream->print(dlm);
     // Get and print the system status
     if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
@@ -499,11 +483,55 @@ void scan::printFingerprintData(Stream &stream, const char *dlm, spectralSource 
 {printFingerprintData(&stream, dlm, source);}
 
 
+
+// This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
+void scan::printTime(uint32_t time, Stream *stream, bool addNL)
+{
+    // Print it out in the right format
+    stream->print(year(time));
+    stream->print(".");
+    stream->print(month(time));
+    stream->print(".");
+    stream->print(day(time));
+    if (hour(time) < 10)
+    {
+        stream->print(" 0");
+        stream->print(hour(time));
+    }
+    else
+    {
+        stream->print(" ");
+        stream->print(hour(time));
+    }
+    if (minute(time) < 10)
+    {
+        stream->print(":0");
+        stream->print(minute(time));
+    }
+    else
+    {
+        stream->print(":");
+        stream->print(minute(time));
+    }
+    if (second(time) < 10)
+    {
+        stream->print(":0");
+        stream->print(second(time));
+    }
+    else
+    {
+        stream->print(":");
+        stream->print(second(time));
+    }
+    if (addNL) stream->println();
+}
+void scan::printTime(uint32_t time, Stream &stream, bool addNL)
+{printTime(time, &stream, addNL);}
 // This prints out a header for a "par" file in the format that the
 // s::can/ana::xxx software is expecting
 // The delimeter is changable, but if you use anything other than the
 // default TAB (\t, 0x09) the s::can/ana::xxx software will not read it.
-void scan::printHeader(Stream *stream)
+void scan::printFirstLine(Stream *stream)
 {
     stream->print(getSerialNumber());
     stream->print("_");
@@ -517,10 +545,10 @@ void scan::printHeader(Stream *stream)
     stream->println("	This file contains data of the current measurement.");
 
 }
-void scan::printHeader(Stream &stream){printHeader(&stream);}
+void scan::printFirstLine(Stream &stream){printFirstLine(&stream);}
 void scan::printParameterHeader(Stream *stream, const char *dlm)
 {
-    printHeader(stream);
+    printFirstLine(stream);
     stream->print("Date/Time");
     stream->print(dlm);
     stream->print("Status");
@@ -535,14 +563,18 @@ void scan::printParameterHeader(Stream *stream, const char *dlm)
         stream->print(getParameterLowerLimit(i+1));
         stream->print("-");
         stream->print(getParameterUpperLimit(i+1));
-        stream->print("_1");  // This is nominally supposed to be the precision
-        // of the measurement, but I don't know how to get that so I'm saying
-        // "1", which seems to be the value in many of my files
+        stream->print("_");
+        stream->print(getParameterPrecision(i+1));
         stream->print(dlm);
         stream->print(getParameterName(i+1));
-        stream->print("_0.0_1.0_0.0_0.0");  // These should be the calibration
-        // slope and offset for a local cal, but I have no idea how to get those
-        // values, so I'm just setting to the global cal.
+        stream->print("_");
+        stream->print(getParameterCalibOffset(i+1));
+        stream->print("_");
+        stream->print(getParameterCalibSlope(i+1));
+        stream->print("_");
+        stream->print(getParameterCalibX2(i+1));
+        stream->print("_");
+        stream->print(getParameterCalibX3(i+1));
         if (i < nparms-1) stream->print(dlm);
     }
     stream->println();
@@ -554,7 +586,7 @@ void scan::printParameterHeader(Stream &stream, const char *dlm)
 // s::can/ana::xxx software is expecting
 void scan::printFingerprintHeader(Stream *stream, const char *dlm, spectralSource source)
 {
-    printHeader(stream);
+    printFirstLine(stream);
     stream->print("Date/Time");
     stream->print(dlm);
     stream->print("Status");
@@ -922,7 +954,7 @@ String scan::getParameterUnits(int parmNumber)
 float scan::getParameterUpperLimit(int parmNumber)
 {
     int regNumber = 120*parmNumber + 8;
-    return modbus.float32FromRegister(0x03, regNumber);
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
 }
 
 // This gets the lower limit of the parameter
@@ -930,7 +962,43 @@ float scan::getParameterUpperLimit(int parmNumber)
 float scan::getParameterLowerLimit(int parmNumber)
 {
     int regNumber = 120*parmNumber + 10;
-    return modbus.float32FromRegister(0x03, regNumber);
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+}
+
+// This gets the offset of the local calibration
+float scan::getParameterCalibOffset(int parmNumber)
+{
+    int regNumber = 120*parmNumber + 14;
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+}
+
+// This gets the slope of the local calibration
+float scan::getParameterCalibSlope(int parmNumber)
+{
+    int regNumber = 120*parmNumber + 16;
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+}
+
+// This gets the x2 coefficient of the slope of the local calibration
+float scan::getParameterCalibX2(int parmNumber)
+{
+    int regNumber = 120*parmNumber + 18;
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+}
+
+// This gets the x3 coefficient of the slope of the local calibration
+float scan::getParameterCalibX3(int parmNumber)
+{
+    int regNumber = 120*parmNumber + 20;
+    return modbus.float32FromRegister(0x03, regNumber, bigEndian);
+}
+
+// This gets the measurement precision of the parameter
+// Totally a wag as to the location
+uint16_t scan::getParameterPrecision(int parmNumber)
+{
+    int regNumber = 120*parmNumber + 26;
+    return modbus.uint16FromRegister(0x03, regNumber, bigEndian);
 }
 
 
