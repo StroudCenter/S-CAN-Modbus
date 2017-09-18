@@ -148,8 +148,8 @@ public:
     // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
     // This includes the parameter timestamp and status.
     // NB:  You can use this to print to a file on a SD card!
-    void printParameterData(Stream *stream, const char *dlm="    ");
-    void printParameterData(Stream &stream, const char *dlm="    ");
+    void printParameterDataRow(Stream *stream, const char *dlm="    ");
+    void printParameterDataRow(Stream &stream, const char *dlm="    ");
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
     uint32_t getFingerprintTime(spectralSource source=fingerprint);
@@ -167,14 +167,19 @@ public:
     // The actual return from the function is an integer which is a bit-mask
     // describing the fingerprint status (or, well, it would be if I could figure
     // out which register that value lived in).
-    int getFingerprintData(float fpArray[], spectralSource source=fingerprint);
+    // NB:  This is too much for any real Arduino chip...
+    // int getFingerprintData(float fpArray[], spectralSource source=fingerprint);
     // This prints the fingerprint data as delimeter separated data.
     // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
-    // This includes the fingerprint timestamp and status
-    // NB:  You can use this to print to a file on a SD card!
     void printFingerprintData(Stream *stream, const char *dlm="    ",
                               spectralSource source=fingerprint);
     void printFingerprintData(Stream &stream, const char *dlm="    ",
+                              spectralSource source=fingerprint);
+    // This is as above, but includes the fingerprint timestamp and status
+    // NB:  You can use this to print to a file on a SD card!
+    void printFingerprintDataRow(Stream *stream, const char *dlm="    ",
+                              spectralSource source=fingerprint);
+    void printFingerprintDataRow(Stream &stream, const char *dlm="    ",
                               spectralSource source=fingerprint);
 
 
@@ -378,8 +383,8 @@ public:
 
     // This gets abssorbance values in Abs/m for the reference and puts them
     // into a previously initialized float array.  The array must have space
-    // for 256 values!
-    bool getReferenceValues(float refArray[], int refNumber);
+    // for 256 values! - This is too much for any real Arduino chip...
+    // void getReferenceValues(float refArray[], int refNumber);
 
     // This prints the reference data as delimeter separated data.
     // By default, the delimeter is a TAB (\t, 0x09).
@@ -387,6 +392,10 @@ public:
     void printReferenceData(int refNumber, Stream *stream, const char *dlm="    ");
     void printReferenceData(int refNumber, Stream &stream, const char *dlm="    ");
 
+    // This is as above, but includes the reference name and timestamp
+    // NB:  You can use this to print to a file on a SD card!
+    void printReferenceDataRow(int refNumber, Stream *stream, const char *dlm="    ");
+    void printReferenceDataRow(int refNumber, Stream &stream, const char *dlm="    ");
 
 
 //----------------------------------------------------------------------------

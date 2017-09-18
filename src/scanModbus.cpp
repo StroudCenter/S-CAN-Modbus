@@ -350,7 +350,7 @@ float scan::getParameterValue(int parmNumber)
 // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
 // This includes the parameter timestamp and status.
 // NB:  You can use this to print to a file on a SD card!
-void scan::printParameterData(Stream *stream, const char *dlm)
+void scan::printParameterDataRow(Stream *stream, const char *dlm)
 {
     // Print out the timestamp
     printTime(getParameterTime(), stream, false);
@@ -371,8 +371,8 @@ void scan::printParameterData(Stream *stream, const char *dlm)
     }
     stream->println();
 }
-void scan::printParameterData(Stream &stream, const char *dlm)
-{printParameterData(&stream, dlm);}
+void scan::printParameterDataRow(Stream &stream, const char *dlm)
+{printParameterDataRow(&stream, dlm);}
 
 
 // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
@@ -417,49 +417,66 @@ uint16_t scan::getFingerprintStatus(spectralSource source)
 // The actual return from the function is an integer which is a bit-mask
 // describing the fingerprint status (or, well, it would be if I could figure
 // out which register that value lived in).
-int scan::getFingerprintData(float fpArray[], spectralSource source)
-{
-    int startingReg = 522 + 512*source;
-
-    // Get the register data in 4 batches
-    // This could be done using 221 modbus calls each returning 2 registers,
-    // but I think it would be better to reduce the serial traffic and make
-    // only 4 modbus calls each returning the maximum number of registers.
-
-    // Registers 522-645 (+512*source)
-    modbus.getRegisters(0x04, startingReg, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        fpArray[i] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 646-769 (+512*source)
-    modbus.getRegisters(0x04, startingReg+124, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        fpArray[i+62] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 770-893 (+512*source)
-    modbus.getRegisters(0x04, startingReg+248, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        fpArray[i+124] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 894-963 (+512*source)
-    modbus.getRegisters(0x04, startingReg+372, 70);
-    for (int i = 0; i < 35; i++)
-    {
-        fpArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-
-    // A total and complete WAG as to the location of the status (521)
-    // My other guess is that the status is in 508 (startingReg-14)
-    return modbus.uint16FromRegister(0x04, startingReg-1, bigEndian);
-}
+// int scan::getFingerprintData(float fpArray[], spectralSource source)
+// {
+//     int startingReg = 522 + 512*source;
+//
+//     // Get the register data in several batches
+//     int valuesPerCall = 30;
+//     int totalValues = 221;
+//     for (int j = 0; j < totalValues;)
+//     {
+//         int valuesRemaining = totalValues - j;
+//         int regToCall;
+//         if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
+//         else regToCall = valuesPerCall*2;
+//         modbus.getRegisters(0x04, startingReg + j*2, regToCall);
+//         for (int i = 0; i < valuesPerCall; i++)
+//         {
+//             float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
+//             fpArray[i+j] = pointVal;
+//             j++;
+//         }
+//     }
+//
+//     // A total and complete WAG as to the location of the status (521)
+//     // My other guess is that the status is in 508 (startingReg-14)
+//     Serial.println("Status");
+//     return modbus.uint16FromRegister(0x04, startingReg-1, bigEndian);
+// }
 // This prints the fingerprint data as delimeter separated data.
 // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
 // This includes the fingerprint timestamp and status
 // NB:  You can use this to print to a file on a SD card!
 void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource source)
+{
+        int startingReg = 522 + 512*source;
+
+        // Get the register data in several batches
+        int valuesPerCall = 30;
+        int totalValues = 221;
+        for (int j = 0; j < totalValues;)
+        {
+            int valuesRemaining = totalValues - j;
+            int regToCall;
+            if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
+            else regToCall = valuesPerCall*2;
+            modbus.getRegisters(0x04, startingReg + j*2, regToCall);
+            for (int i = 0; i < valuesPerCall; i++)
+            {
+                float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
+                if (i+j < totalValues+1) stream->print(pointVal, 4);
+                if (i+j < totalValues) stream->print(dlm);
+                j++;
+            }
+        }
+        stream->println();
+}
+void scan::printFingerprintData(Stream &stream, const char *dlm, spectralSource source)
+{printFingerprintData(&stream, dlm, source);}
+// This is as above, but includes the fingerprint timestamp and status
+// NB:  You can use this to print to a file on a SD card!
+void scan::printFingerprintDataRow(Stream *stream, const char *dlm, spectralSource source)
 {
     // Print out the timestamp
     printTime(getFingerprintTime(source), stream, false);
@@ -467,17 +484,11 @@ void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource 
     // Get and print the system status
     if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
     else {stream->print("Error"); stream->print(dlm);}
-    // Get the fingerprint values
-    float fp[221] = {0,};
-    getFingerprintData(fp, source);
-    for (int i = 0; i < 221; i++)
-    {
-        stream->print(fp[i], 4);
-        if (i < 220) stream->print(dlm);
-    }
+    // Print out the data values
+    printFingerprintData(stream, dlm, source);
 }
-void scan::printFingerprintData(Stream &stream, const char *dlm, spectralSource source)
-{printFingerprintData(&stream, dlm, source);}
+void scan::printFingerprintDataRow(Stream &stream, const char *dlm, spectralSource source)
+{printFingerprintDataRow(&stream, dlm, source);}
 
 
 
@@ -594,6 +605,7 @@ void scan::printFingerprintHeader(Stream *stream, const char *dlm, spectralSourc
         stream->print(dlm);
         stream->print(i, 2);
     }
+    stream->println();
 }
 void scan::printFingerprintHeader(Stream &stream, const char *dlm, spectralSource source)
 {printFingerprintHeader(&stream, dlm, source);}
@@ -697,9 +709,15 @@ String scan::parseRegisterType(uint16_t code)
 
 // This reads the global calibration name from the private registers
 // NB This is NOT documented
+// NB In theory, can get the location from the pointer to private setup which
+// is in the holding registers.  In reality, it seems alwasy to start at 1180
+// for the spectrolyzer and to be in for ana::gate, so I'll just call there
+// and save data transfer time.
 String scan::getCurrentGlobalCal(void)
 {
-    int regNum = getprivateConfigRegister();
+    if (getModelType() == 0x0101) return modbus.StringFromRegister(0x03, 1180, 12);
+    else return modbus.StringFromRegister(0x03, 964, 12);
+    /*
     byte regType;
     switch (getprivateConfigRegisterType())
     {
@@ -720,6 +738,7 @@ String scan::getCurrentGlobalCal(void)
         if (testVal != 0) break;
     }
     return modbus.StringFromRegister(regType, actualReg, 12);
+    */
 }
 
 
@@ -897,7 +916,8 @@ int scan::getIndexLogResult(void)
 
 // This returns a string with the parameter measured.
 // The information on the first parameter is in register 120
-// The next parameter begins 120 registers after that, up to 8 parameters
+// The next parameter begins 120 registers after that.
+// The spectro::lyzer supports up to 8 parameters, ana::gate supports 32.
 String scan::getParameterName(int parmNumber)
 {
     int startingReg = 120*parmNumber;
@@ -1082,55 +1102,64 @@ uint32_t scan::getReferenceTime(int refNumber)
 // This gets abssorbance values in Abs/m for the reference and puts them
 // into a previously initialized float array.  The array must have space
 // for 256 values!
-bool scan::getReferenceValues(float refArray[], int refNumber)
-{
-    int startingReg = 1542 + 536*refNumber;
-
-    // Get the register data in 5 batches
-    // This could be done using 256 modbus calls each returning 2 registers,
-    // but I think it would be better to reduce the serial traffic and make
-    // only 4 modbus calls each returning the maximum number of registers.
-
-    // Registers 1542-1665 (+536*refNumber)
-    modbus.getRegisters(0x04, startingReg, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        refArray[i] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 1666-1789 (+536*refNumber)
-    modbus.getRegisters(0x04, startingReg+124, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        refArray[i+62] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 1790-1913 (+536*refNumber)
-    modbus.getRegisters(0x04, startingReg+248, 124);
-    for (int i = 0; i < 62; i++)
-    {
-        refArray[i+124] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 1914-2037 (+536*refNumber)
-    modbus.getRegisters(0x04, startingReg+372, 124);
-    for (int i = 0; i < 35; i++)
-    {
-        refArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-    // Registers 2038-2053 (+536*refNumber)
-    modbus.getRegisters(0x04, startingReg+496, 16);
-    for (int i = 0; i < 35; i++)
-    {
-        refArray[i+186] = modbus.float32FromFrame(bigEndian, (i*2 + 3));
-    }
-
-    // A total and complete WAG as to the location of the status (521)
-    // My other guess is that the status is in 508 (startingReg-14)
-    return modbus.uint16FromRegister(0x04, startingReg-1, bigEndian);
-}
+// void scan::getReferenceValues(float refArray[], int refNumber)
+// {
+//     int startingReg = 1542 + 536*refNumber;
+//
+//     // Get the register data in several batches
+//     int valuesPerCall = 30;
+//     int totalValues = 256;
+//     for (int j = 0; j < totalValues;)
+//     {
+//         int valuesRemaining = totalValues - j;
+//         int regToCall;
+//         if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
+//         else regToCall = valuesPerCall*2;
+//         modbus.getRegisters(0x04, startingReg + j*2, regToCall);
+//         for (int i = 0; i < valuesPerCall; i++)
+//         {
+//             float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
+//             refArray[i+j] = pointVal;
+//             j++;
+//         }
+//     }
+// }
 
 // This prints the reference data as delimeter separated data.
 // By default, the delimeter is a TAB (\t, 0x09).
 // NB:  You can use this to print to a file on a SD card!
 void scan::printReferenceData(int refNumber, Stream *stream, const char *dlm)
+{
+    int startingReg = 1542 + 536*refNumber;
+
+    // Get the register data in several batches
+    int valuesPerCall = 30;
+    int totalValues = 221;
+    for (int j = 0; j < totalValues;)
+    {
+        int valuesRemaining = totalValues - j;
+        int regToCall;
+        if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
+        else regToCall = valuesPerCall*2;
+        modbus.getRegisters(0x04, startingReg + j*2, regToCall);
+        for (int i = 0; i < valuesPerCall; i++)
+        {
+            float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
+            if (i+j < totalValues+1) stream->print(pointVal, 4);
+            if (i+j < totalValues) stream->print(dlm);
+            j++;
+        }
+    }
+    stream->println();
+}
+void scan::printReferenceData(int refNumber, Stream &stream, const char *dlm)
+{printReferenceData(refNumber, &stream, dlm);}
+
+
+
+// This is as above, but includes the reference name and timestamp
+// NB:  You can use this to print to a file on a SD card!
+void scan::printReferenceDataRow(int refNumber, Stream *stream, const char *dlm)
 {
     // Print out the name
     stream->print(getReferenceName(refNumber));
@@ -1138,20 +1167,11 @@ void scan::printReferenceData(int refNumber, Stream *stream, const char *dlm)
     // Print out the timestamp
     printTime(getReferenceTime(refNumber), stream, false);
     stream->print(dlm);
-    // Get and print the system status
-    if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
-    else {stream->print("Error"); stream->print(dlm);}
-    // Get the fingerprint values
-    float fp[256] = {0,};
-    getReferenceValues(fp, refNumber);
-    for (int i = 0; i < 256; i++)
-    {
-        stream->print(fp[i], 4);
-        if (i < 220) stream->print(dlm);
-    }
+    // Print the reference values
+    printReferenceData(refNumber, stream, dlm);
 }
-void scan::printReferenceData(int refNumber, Stream &stream, const char *dlm)
-{printReferenceData(refNumber, &stream, dlm);}
+void scan::printReferenceDataRow(int refNumber, Stream &stream, const char *dlm)
+{printReferenceDataRow(refNumber, &stream, dlm);}
 
 
 

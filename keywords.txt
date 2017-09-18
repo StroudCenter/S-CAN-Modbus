@@ -21,9 +21,9 @@ getSampleTime	KEYWORD2
 printSampleTime	KEYWORD2
 getParameterValue	KEYWORD2
 printParameterStatus	KEYWORD2
-printParameterData	KEYWORD2
+printParameterDataRow	KEYWORD2
 getFingerprintData	KEYWORD2
-printFingerprintData	KEYWORD2
+printFingerprintDataRow	KEYWORD2
 printParameterHeader	KEYWORD2
 printFingerprintHeader	KEYWORD2
 getCommunicationMode	KEYWORD2

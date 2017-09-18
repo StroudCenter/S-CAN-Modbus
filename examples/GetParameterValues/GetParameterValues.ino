@@ -21,7 +21,7 @@ Yosemitech modbus sensor.
 // ---------------------------------------------------------------------------
 
 // Define the sensor's modbus address
-byte modbusAddress = 0x04;  // The sensor's modbus address, or SlaveID
+byte modbusAddress = 0x01;  // The sensor's modbus address, or SlaveID
 
 // Define pin number variables
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
@@ -46,16 +46,16 @@ void setup()
     if (DEREPin > 0) pinMode(DEREPin, OUTPUT);
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
-    Serial1.begin(38400, SERIAL_8N2);
+    Serial1.begin(38400, SERIAL_8O1);
     // modbusSerial.begin(38400);  // The modbus serial stream
-    // The default baud rate for the spectro::lyzer is 38400
+    // The default baud rate for the spectro::lyzer is 38400, 8 data bits, odd parity, 1 stop bit
 
     // Start up the sensor
     // sensor.begin(modbusAddress, &modbusSerial, DEREPin);
     sensor.begin(modbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
-    sensor.setDebugStream(&Serial);
+    // sensor.setDebugStream(&Serial);
 
     // Start up note
     Serial.println("S::CAN Spect::lyzer Test");
@@ -134,6 +134,9 @@ void setup()
 void loop()
 {
 
+    // Wait 2 minutes
+    delay(120000);
+
     // Print out the device status
     uint16_t status;
     status = sensor.getDeviceStatus();
@@ -156,12 +159,10 @@ void loop()
         Serial.print(" ");
         Serial.print(sensor.getParameterUnits(i));
         Serial.print(" with status code: ");
-        Serial.println(sensor.getParameterStatus(i), BIN);
-        sensor.printParameterStatus(status, Serial);
+        uint16_t parm_status = sensor.getParameterStatus(i);
+        Serial.println(parm_status, BIN);
+        sensor.printParameterStatus(parm_status, Serial);
     }
 
-    // sensor.printParameterData(Serial);
-
-    // Wait 2 minutes
-    delay(120000);
+    // sensor.printParameterDataRow(Serial);
 }
