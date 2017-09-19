@@ -15,7 +15,7 @@ install:
     - pip install -U platformio
     - pio upgrade
     - pio update
-    - pio lib install Time, SPI, SdFat, SensorModbusMaster
+    - pio lib install Time, SdFat, SensorModbusMaster
     - pio lib update
 
 script:
