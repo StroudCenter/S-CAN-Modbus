@@ -19,4 +19,4 @@ install:
     - pio lib update
 
 script:
-- platformio ci --lib="." --board=mayfly
+- platformio ci --lib="." --board=mayfly  --board=featherM0

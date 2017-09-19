@@ -1,18 +1,14 @@
 /*****************************************************************************
 getParameterValues.ino
 
-This prints basic meta-data about a sensor to the first serial port and then
-begins taking measurements from the sensor.
-
-The sensor model and address can easily be modified to use this sketch with any
-Yosemitech modbus sensor.
+This prints all of the setup information for a spectro::lyzer (or ana::gate)
+and then puts the spec into logging mode and prints out the data.
 *****************************************************************************/
 
 // ---------------------------------------------------------------------------
 // Include the base required libraries
 // ---------------------------------------------------------------------------
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include <scanModbus.h>
 
 // ---------------------------------------------------------------------------
@@ -28,13 +24,8 @@ const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enabl
                           // on the RS485 adapter, if applicable (else, -1)
                           // Setting HIGH enables the driver (arduino) to send text
                           // Setting LOW enables the receiver (sensor) to send text
-const int SSRxPin = 10;  // Recieve pin for software serial (Rx on RS485 adapter)
-const int SSTxPin = 11;  // Send pin for software serial (Tx on RS485 adapter)
 
-// Construct software serial object for Modbus
-SoftwareSerial modbusSerial(SSRxPin, SSTxPin);
-
-// Construct the Yosemitech modbus instance
+// Construct the S::CAN modbus instance
 scan sensor;
 bool success;
 
@@ -47,7 +38,6 @@ void setup()
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
     Serial1.begin(38400, SERIAL_8O1);
-    // modbusSerial.begin(38400);  // The modbus serial stream
     // The default baud rate for the spectro::lyzer is 38400, 8 data bits, odd parity, 1 stop bit
 
     // Start up the sensor
