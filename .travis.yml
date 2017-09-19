@@ -19,4 +19,4 @@ install:
     - pio lib update
 
 script:
-- platformio ci --lib="." --board=mayfly  --board=featherM0
+- platformio ci --lib="." --board=mayfly --board=feather32u4 --board=adafruit_feather_m0 --board=megaatmega2560

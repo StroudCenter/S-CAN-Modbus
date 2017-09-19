@@ -1,6 +1,6 @@
 {
     "name": "scanModbus",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "keywords": "s::can, spectro::lyzer, spectrolyzer, spec, modbus",
     "description": "Arduino library for communicating with S::CAN instruments, either directly with a spectro::lyzer or to any instrument via ana::gate.",
     "repository":
