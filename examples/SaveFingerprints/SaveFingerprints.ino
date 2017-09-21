@@ -31,9 +31,12 @@ rather than using any other internal or external clock.
 uint32_t logging_interval_minutes = 1L;
 uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
 
+// Define the button you will press to begin the program
+const uint8_t buttonPin = 21;
+
 // Define the sensor's modbus address
 byte modbusAddress = 0x01;  // The sensor's modbus address, or SlaveID
-// Yosemitech ships sensors with a default ID of 0x01.
+// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
 
 // Define pin number variables
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
@@ -59,7 +62,7 @@ static char fpFileName0[25], fpFileName1[25], fpFileName2[25], fpFileName3[25],
 
 void startFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
-    uint32_t currentTime = sensor.getSystemTime();
+    time_t currentTime = sensor.getSystemTime();
 
     String filename = "";
     filename += year(currentTime);
@@ -82,7 +85,7 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     filename += extension;
     filename.toCharArray(filenameBuffer, 25);
     Serial.print(F("Creating file "));
-    Serial.print(filenameBuffer);
+    Serial.println(filenameBuffer);
 
     // Create and open the file in write mode
     file.open(filenameBuffer, O_CREAT | O_WRITE | O_AT_END);
@@ -112,7 +115,9 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     if (extension == "fp")
     {
         sensor.printFingerprintHeader(file, "    ", source);
+        sensor.setDebugStream(&Serial);
         sensor.printFingerprintHeader(Serial, "    ", source);
+        sensor.stopDebugging();
     }
     else
     {
@@ -121,14 +126,14 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     }
 
     //Close the file to save it
-    Serial.println("=======================");
     file.close();
     Serial.print(F("   ... Success!\n"));
+    Serial.println("=======================");
 }
 
 void writeToFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
-    uint32_t currentTime = sensor.getSystemTime();
+    time_t currentTime = sensor.getSystemTime();
 
     // Check if the file already exists, else create a new one
     if (!sd.exists(filenameBuffer)) startFile(file, extension, filenameBuffer);
@@ -137,7 +142,7 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     else if (file.size() > 2000000L) startFile(file, extension, filenameBuffer);
 
     Serial.print(F("Writing to file "));
-    Serial.print(filenameBuffer);
+    Serial.println(filenameBuffer);
 
     // Open the file in write mode
     file.open(filenameBuffer, O_WRITE | O_AT_END);
@@ -169,9 +174,9 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     }
 
     //Close the file to save it
-    Serial.println("=======================");
     file.close();
     Serial.print(F("   ... Success!\n"));
+    Serial.println("=======================");
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +185,7 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
 void setup()
 {
     if (DEREPin > 0) pinMode(DEREPin, OUTPUT);
+    if (buttonPin > 0) pinMode(buttonPin, INPUT_PULLUP);
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
     Serial1.begin(38400, SERIAL_8O1);
@@ -196,14 +202,26 @@ void setup()
     Serial.println("S::CAN Spect::lyzer Data Recording");
 
     // Allow the sensor and converter to warm up
-    Serial.println("Waiting for sensor and adapter to be ready.");
-    delay(500);
+    if (buttonPin > 0)
+    {
+        Serial.print("Communication will begin after pushing the button connected to pin ");
+        Serial.println(buttonPin);
+        while(true) if (digitalRead(buttonPin) == HIGH) break;
+        delay(500);
+    }
+    else
+    {
+        // Allow the sensor and converter to warm up
+        Serial.println("Waiting for sensor and adapter to be ready.");
+        delay(500);
+    }
 
     // Print out all of the setup information
+    sensor.wakeSpec();
     sensor.printSetup(Serial);
     Serial.println("=======================");
-    //
-    // // Print out the device status
+
+    // Print out the device status
     uint16_t status;
     status = sensor.getDeviceStatus();
     Serial.print("Current device status is: ");
@@ -240,6 +258,9 @@ void setup()
 // ---------------------------------------------------------------------------
 void loop()
 {
+    // Track how long the loop takes
+    uint32_t startLoop = millis();
+
     // Initialise the SD card
     if (!sd.begin(SDCardPin, SPI_FULL_SPEED))
     {
@@ -251,6 +272,7 @@ void loop()
         Serial.print(F("Successfully connected to SD Card with card/slave select on pin "));
         Serial.println(SDCardPin);
 
+        sensor.wakeSpec();
         writeToFile(parFile, "par", parFileName);
         writeToFile(fpFile0, "fp", fpFileName0, fingerprint);
         writeToFile(fpFile1, "fp", fpFileName1, compensFP);
@@ -262,7 +284,13 @@ void loop()
         writeToFile(fpFile7, "fp", fpFileName7, other);
     }
 
+    // track how long the loop took
+    Serial.print(F("Writing to the SD card took "));
+    Serial.print(millis() - startLoop);
+    Serial.println("ms");
+
+
     // Wait
-    delay(delay_ms);
+    delay(delay_ms - (millis() - startLoop));
 
 }

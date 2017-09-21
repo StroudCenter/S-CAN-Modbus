@@ -16,8 +16,16 @@ and then puts the spec into logging mode and prints out the data.
 //   ie, pin locations, addresses, calibrations and related settings
 // ---------------------------------------------------------------------------
 
+// Define how often you want to log
+uint32_t logging_interval_minutes = 5L;
+uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
+
+// Define the button you will press to begin the program
+const uint8_t buttonPin = 21;
+
 // Define the sensor's modbus address
 byte modbusAddress = 0x01;  // The sensor's modbus address, or SlaveID
+// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
 
 // Define pin number variables
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
@@ -35,6 +43,7 @@ bool success;
 void setup()
 {
     if (DEREPin > 0) pinMode(DEREPin, OUTPUT);
+    if (buttonPin > 0) pinMode(buttonPin, INPUT_PULLUP);
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
     Serial1.begin(38400, SERIAL_8O1);
@@ -48,15 +57,22 @@ void setup()
     // sensor.setDebugStream(&Serial);
 
     // Start up note
-    Serial.println("S::CAN Spect::lyzer Test");
+    Serial.println("S::CAN Spect::lyzer Data Recording");
 
     // Allow the sensor and converter to warm up
-    Serial.println("Waiting for sensor and adapter to be ready.");
-    delay(500);
-
-    // Print out all of the setup information
-    sensor.setLoggingMode(1);
-    sensor.printSetup(Serial);
+    if (buttonPin > 0)
+    {
+        Serial.print("Communication will begin after pushing the button connected to pin ");
+        Serial.println(buttonPin);
+        while(true) if (digitalRead(buttonPin) == HIGH) break;
+        delay(500);
+    }
+    else
+    {
+        // Allow the sensor and converter to warm up
+        Serial.println("Waiting for sensor and adapter to be ready.");
+        delay(500);
+    }
 
     // Print out the device status
     uint16_t status;
@@ -75,26 +91,6 @@ void setup()
     Serial.print("Current logging mode is: ");
     Serial.println(sensor.getLoggingMode());
 
-    Serial.println("Set cleaning to automatic (2)");
-    sensor.setCleaningMode(automatic);
-    Serial.print("Current cleaning mode is: ");
-    Serial.println(sensor.getCleaningMode());
-
-    Serial.println("Set the cleaning interval to every 11 readings");
-    sensor.setCleaningInterval(11);
-    Serial.print("Current cleaning interval is: ");
-    Serial.println(sensor.getCleaningInterval());
-
-    Serial.println("Set the cleaning duration to 4 seconds");
-    sensor.setCleaningDuration(4);
-    Serial.print("Current cleaning duration is: ");
-    Serial.println(sensor.getCleaningDuration());
-
-    Serial.println("Set the wait period after cleaning to 10 seconds");
-    sensor.setCleaningWait(10);
-    Serial.print("Current wait period after cleaning is: ");
-    Serial.println(sensor.getCleaningWait());
-
     Serial.println("Set the measurement interval to 5*60 seconds");
     sensor.setMeasInterval(5*60);
     Serial.print("Current measurement interval is: ");
@@ -110,10 +106,6 @@ void setup()
     // Print out all of the setup information again
     // sensor.printSetup(Serial);
 
-    // sensor.setDebugStream(&Serial);
-    sensor.printParameterHeader(Serial);
-    // sensor.stopDebugging();
-
     // Wait to allow spec to take data and put it into registers
     delay(35000);
 }
@@ -123,10 +115,6 @@ void setup()
 // ---------------------------------------------------------------------------
 void loop()
 {
-
-    // Wait 2 minutes
-    delay(120000);
-
     // Print out the device status
     uint16_t status;
     status = sensor.getDeviceStatus();
@@ -142,17 +130,20 @@ void loop()
     for (int i = 1; i < sensor.getParameterCount()+1; i++)
     {
         Serial.println("----");
-        Serial.print("Value of parameter Number ");
+        Serial.print("Parameter number ");
         Serial.print(i);
         Serial.print(" is: ");
+        Serial.print(sensor.getParameterName(i));
+        Serial.print(".\r\nWhich currently has a value of: ");
         Serial.print(sensor.getParameterValue(i));
         Serial.print(" ");
         Serial.print(sensor.getParameterUnits(i));
-        Serial.print(" with status code: ");
+        Serial.print(" and status code: ");
         uint16_t parm_status = sensor.getParameterStatus(i);
         Serial.println(parm_status, BIN);
         sensor.printParameterStatus(parm_status, Serial);
     }
 
-    // sensor.printParameterDataRow(Serial);
+    // wait until next reading
+    delay(delay_ms);
 }

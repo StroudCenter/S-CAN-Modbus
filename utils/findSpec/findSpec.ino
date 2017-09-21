@@ -64,13 +64,9 @@ void setup()
     if (DEREPin > 0) pinMode(DEREPin, OUTPUT);
 
     Serial.begin(57600);  // Main serial port for debugging via USB Serial Monitor
-    sensor.begin(modbusAddress, &Serial1, DEREPin);
-    sensor.setDebugStream(&Serial);
 
-    uint16_t baudrates[] = {1200, 9600, 19200, 38400, 57600};
+    uint16_t baudrates[] = {1200, 2400, 4800, 9600, 19200, 38400, 57600};
     uint8_t configs[] = {SERIAL_8N1, SERIAL_8N2, SERIAL_8O1, SERIAL_8E1};
-
-    bool success = false;
 
     for (byte k = 0x00; k < 0x0F; k++)
     {
@@ -87,10 +83,22 @@ void setup()
                 Serial.print("Current configuration: 0x");
                 Serial.println(configs[j], HEX);
                 Serial1.begin(baudrates[i], configs[j]);  // port for communicating with sensor
-                success = sensor.uint16ToRegister(4, 1, bigEndian);
+                int address = sensor.uint16FromRegister(0x03, 0x00, bigEndian);
+                if (address > 0) {
+                    Serial.println("Sensor replied!");
+                    Serial.println("=======================");
+                    Serial.print("******Current modbus address: 0x0");
+                    Serial.println(k, HEX);
+                    Serial.print("******Current baud rate: ");
+                    Serial.println(baudrates[i]);
+                    Serial.print("******Current configuration: 0x");
+                    Serial.println(configs[j], HEX);
+                    Serial.println("=======================");
+                    break;
+                }
                 Serial1.end();
                 Serial.println("=======================");
-                if (success) break;
+                delay(10);
             }
         }
     }

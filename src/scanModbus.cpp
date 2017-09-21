@@ -179,10 +179,7 @@ bool scan::printSetup(Stream &stream) {return printSetup(&stream);}
 // Reset all settings to default
 bool scan::resetSettings(void)
 {
-    byte byteToSend[2];
-    byteToSend[0] = 0x00;
-    byteToSend[1] = 0x01;
-    return modbus.setRegisters(4, 1, byteToSend);
+    return modbus.uint16ToRegister(4, 1, bigEndian);
 }
 
 
@@ -346,33 +343,6 @@ float scan::getParameterValue(int parmNumber)
     // Get the register data
     return modbus.float32FromRegister(0x04, startingReg, bigEndian);
 }
-// This prints the data from ALL parameters as delimeter separated data.
-// By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
-// This includes the parameter timestamp and status.
-// NB:  You can use this to print to a file on a SD card!
-void scan::printParameterDataRow(Stream *stream, const char *dlm)
-{
-    // Print out the timestamp
-    printTime(getParameterTime(), stream, false);
-    stream->print(dlm);
-    // Get and print the system status
-    int sysStat = getSystemStatus();
-    if (sysStat == 0) {stream->print("Ok"); stream->print(dlm);}
-    else {stream->print("Error"); stream->print(dlm);}
-    // Get the number of parameters that are being recorded
-    int nparms = getParameterCount();
-    for (int i = 0; i < nparms; i++)
-    {
-        float value = getParameterValue(i+1);
-        stream->print(value, 3);
-        stream->print(dlm);
-        stream->print(sysStat);
-        if (i < nparms-1) stream->print(dlm);
-    }
-    stream->println();
-}
-void scan::printParameterDataRow(Stream &stream, const char *dlm)
-{printParameterDataRow(&stream, dlm);}
 
 
 // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
@@ -474,26 +444,11 @@ void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource 
 }
 void scan::printFingerprintData(Stream &stream, const char *dlm, spectralSource source)
 {printFingerprintData(&stream, dlm, source);}
-// This is as above, but includes the fingerprint timestamp and status
-// NB:  You can use this to print to a file on a SD card!
-void scan::printFingerprintDataRow(Stream *stream, const char *dlm, spectralSource source)
-{
-    // Print out the timestamp
-    printTime(getFingerprintTime(source), stream, false);
-    stream->print(dlm);
-    // Get and print the system status
-    if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
-    else {stream->print("Error"); stream->print(dlm);}
-    // Print out the data values
-    printFingerprintData(stream, dlm, source);
-}
-void scan::printFingerprintDataRow(Stream &stream, const char *dlm, spectralSource source)
-{printFingerprintDataRow(&stream, dlm, source);}
 
 
 
 // This prints out the sample time, formatted as YYYY.MM.DD hh:mm:ss
-void scan::printTime(uint32_t time, Stream *stream, bool addNL)
+void scan::printTime(time_t time, Stream *stream, bool addNL)
 {
     // Print it out in the right format
     stream->print(year(time));
@@ -535,10 +490,8 @@ void scan::printTime(uint32_t time, Stream *stream, bool addNL)
 }
 void scan::printTime(uint32_t time, Stream &stream, bool addNL)
 {printTime(time, &stream, addNL);}
-// This prints out a header for a "par" file in the format that the
-// s::can/ana::xxx software is expecting
-// The delimeter is changable, but if you use anything other than the
-// default TAB (\t, 0x09) the s::can/ana::xxx software will not read it.
+
+// This creates the first line of an s::can/ana::xxx header
 void scan::printFirstLine(Stream *stream)
 {
     stream->print(getSerialNumber());
@@ -554,6 +507,11 @@ void scan::printFirstLine(Stream *stream)
 
 }
 void scan::printFirstLine(Stream &stream){printFirstLine(&stream);}
+
+// This prints out a header for a "par" file in the format that the
+// s::can/ana::xxx software is expecting
+// The delimeter is changable, but if you use anything other than the
+// default TAB (\t, 0x09) the s::can/ana::xxx software will not read it.
 void scan::printParameterHeader(Stream *stream, const char *dlm)
 {
     printFirstLine(stream);
@@ -590,6 +548,34 @@ void scan::printParameterHeader(Stream *stream, const char *dlm)
 void scan::printParameterHeader(Stream &stream, const char *dlm)
 {printParameterHeader(&stream, dlm);}
 
+// This prints the data from ALL parameters as delimeter separated data.
+// By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
+// This includes the parameter timestamp and status.
+// NB:  You can use this to print to a file on a SD card!
+void scan::printParameterDataRow(Stream *stream, const char *dlm)
+{
+    // Print out the timestamp
+    printTime(getParameterTime(), stream, false);
+    stream->print(dlm);
+    // Get and print the system status
+    int sysStat = getSystemStatus();
+    if (sysStat == 0) {stream->print("Ok"); stream->print(dlm);}
+    else {stream->print("Error"); stream->print(dlm);}
+    // Get the number of parameters that are being recorded
+    int nparms = getParameterCount();
+    for (int i = 0; i < nparms; i++)
+    {
+        float value = getParameterValue(i+1);
+        stream->print(value, 3);
+        stream->print(dlm);
+        stream->print(sysStat);
+        if (i < nparms-1) stream->print(dlm);
+    }
+    stream->println();
+}
+void scan::printParameterDataRow(Stream &stream, const char *dlm)
+{printParameterDataRow(&stream, dlm);}
+
 // This prints out a header for a "fp" file in the format that the
 // s::can/ana::xxx software is expecting
 void scan::printFingerprintHeader(Stream *stream, const char *dlm, spectralSource source)
@@ -610,7 +596,21 @@ void scan::printFingerprintHeader(Stream *stream, const char *dlm, spectralSourc
 void scan::printFingerprintHeader(Stream &stream, const char *dlm, spectralSource source)
 {printFingerprintHeader(&stream, dlm, source);}
 
-
+// This is as above, but includes the fingerprint timestamp and status
+// NB:  You can use this to print to a file on a SD card!
+void scan::printFingerprintDataRow(Stream *stream, const char *dlm, spectralSource source)
+{
+    // Print out the timestamp
+    printTime(getFingerprintTime(source), stream, false);
+    stream->print(dlm);
+    // Get and print the system status
+    if (getSystemStatus() == 0) {stream->print("Ok"); stream->print(dlm);}
+    else {stream->print("Error"); stream->print(dlm);}
+    // Print out the data values
+    printFingerprintData(stream, dlm, source);
+}
+void scan::printFingerprintDataRow(Stream &stream, const char *dlm, spectralSource source)
+{printFingerprintDataRow(&stream, dlm, source);}
 
 
 //----------------------------------------------------------------------------
@@ -748,11 +748,7 @@ String scan::getCurrentGlobalCal(void)
 String scan::getScanPoint(void)
 {return modbus.StringFromRegister(0x03, 6, 12);}
 bool scan::setScanPoint(char charScanPoint[12])
-{
-    byte sp[12] = {0,};
-    for (int i = 0; i < 12; i++) sp[i] = charScanPoint[i];
-    return modbus.setRegisters(6, 6, sp);
-}
+{return modbus.charToRegister(6, charScanPoint, 12);}
 
 
 // Functions for the cleaning mode configuration
@@ -783,30 +779,14 @@ String scan::parseCleaningMode(uint16_t code)
 int scan::getCleaningInterval(void)
 {return modbus.uint16FromRegister(0x03, 13);}
 bool scan::setCleaningInterval(uint16_t intervalSamples)
-{
-    // Using a little-endian frame to get into bytes and then reverse the order
-    leFrame fram;
-    fram.Int16[0] = intervalSamples;
-    byte byteToSend[2];
-    byteToSend[0] = fram.Byte[1];
-    byteToSend[1] = fram.Byte[0];
-    return modbus.setRegisters(13, 1, byteToSend);
-}
+{return uint16ToRegister(13, intervalSamples, bigEndian);}
 
 // Functions for the cleaning duration in seconds
 // Cleaning duration is in holding register 14 (1 uint16 register)
 int scan::getCleaningDuration(void)
 {return modbus.uint16FromRegister(0x03, 14);}
 bool scan::setCleaningDuration(uint16_t secDuration)
-{
-    // Using a little-endian frame to get into bytes and then reverse the order
-    leFrame fram;
-    fram.Int16[0] = secDuration;
-    byte byteToSend[2];
-    byteToSend[0] = fram.Byte[1];
-    byteToSend[1] = fram.Byte[0];
-    return modbus.setRegisters(14, 1, byteToSend);
-}
+{return uint16ToRegister(14, secDuration, bigEndian);}
 
 // Functions for the waiting time between end of cleaning
 // and the start of a measurement
@@ -814,15 +794,7 @@ bool scan::setCleaningDuration(uint16_t secDuration)
 int scan::getCleaningWait(void)
 {return modbus.uint16FromRegister(0x03, 15);}
 bool scan::setCleaningWait(uint16_t secDuration)
-{
-    // Using a little-endian frame to get into bytes and then reverse the order
-    leFrame fram;
-    fram.Int16[0] = secDuration;
-    byte byteToSend[2];
-    byteToSend[0] = fram.Byte[1];
-    byteToSend[1] = fram.Byte[0];
-    return modbus.setRegisters(15, 1, byteToSend);
-}
+{return uint16ToRegister(15, secDuration, bigEndian);}
 
 // Functions for the current system time in seconds from Jan 1, 1970
 // System time is in holding registers 16-21
@@ -830,18 +802,7 @@ bool scan::setCleaningWait(uint16_t secDuration)
 uint32_t scan::getSystemTime(void)
 {return modbus.TAI64FromRegister(0x03, 16);}
 bool scan::setSystemTime(uint32_t currentUnixTime)
-{
-    // Using a little-endian frame to get into bytes and then reverse the order
-    leFrame fram;
-    fram.Int32 = currentUnixTime;
-    byte byteToSend[12] = {0,};
-    byteToSend[0] = 0x40;  // It will be for the next 90 years
-    byteToSend[4] = fram.Byte[3];
-    byteToSend[5] = fram.Byte[2];
-    byteToSend[6] = fram.Byte[1];
-    byteToSend[7] = fram.Byte[0];
-    return modbus.setRegisters(16, 6, byteToSend);
-}
+{return TAI64ToRegister(16, currentUnixTime);}
 
 // Functions for the measurement interval in seconds (0 - as fast as possible)
 // Measurement interval is in holding register 22 (1 uint16 register)

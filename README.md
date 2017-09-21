@@ -18,7 +18,7 @@ _______
 - Measurement parameters (flashrate, lamp voltage, etc)
 
 ## Further specto::lyzer settings accessible via modbus
-These settings are accessible, and theoretically changable, via modbus, but I would strongly recommend using ana::pro to change them.
+These settings are accessible, and _theoretically_ changable, via modbus, but I would strongly recommend using ana::pro to change them.
 - Current scan::point name
 - Current device time
 - Curernt parameter setup and local calibration (partially documented)
@@ -50,3 +50,12 @@ This data can be accessed, but not changed
     - only the single most recent data point is available
 - Any data when the logger is not in "logging" mode
     - If the logger is connected to ana::pro, ana::lyte, or moni::tools and recording data in either manual or automatic mode, the data sent to the controller will not be accessible via modbus.
+
+_______
+#Available Examples and Utilities
+These examples are in the "examples" folder:
+- "GetParameterValues" puts the spectro::lyzer into logging mode at 5-minute intervals and then prints the parameter values to the serial port every 5 minutes.
+- "SaveFingerprints" queries the spectro::lyzer and attempts to exactly re-create s::can's "par" and "fp" files on an SD card.  It does _not_ start the spectro::lyzer logging or make any attempt to change any of the spectro::lyzer's settings.
+
+These utilities are also available in the "utils" folder:
+- "findSpec" searches for a response from the spec at all of the different baudrates, parities, and modbus addresses the spectro::lyzer typically supports.  This could be really helpful if you do not know your spectro::lyzer's current settings.  The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.  Not that this will _only_ work when connecting to the spectro::lyzer with a hardware serial port.

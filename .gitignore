@@ -89,3 +89,6 @@ platformio.ini
 *.exe
 *.out
 *.app
+
+# Others
+utils/hammerSpec/*
