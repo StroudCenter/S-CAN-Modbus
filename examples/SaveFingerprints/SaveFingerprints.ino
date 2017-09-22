@@ -20,6 +20,7 @@ rather than using any other internal or external clock.
 // ---------------------------------------------------------------------------
 #include <Arduino.h>
 #include <scanModbus.h>
+#include <scanAnapro.h>
 #include <SdFat.h> // To communicate with the SD card
 
 // ---------------------------------------------------------------------------
@@ -46,10 +47,13 @@ const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enabl
 
 // Construct the S::CAN modbus instance
 scan sensor;
-bool success;
+// Construct the "ana::pro" instance for printing formatted strings
+anapro sensorPr(&sensor);
+static time_t lastSampleTime;
 
 // A global variable for the filename
 String fileName;
+static time_t fileStartTime;
 
 // Setting up the SD card
 const int SDCardPin = 12;
@@ -64,18 +68,13 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
 {
     time_t currentTime = sensor.getSystemTime();
 
+    // Check if the start time is within a minute of the last file, to avoid having
+    // many files with nearly-but-not-quite identical file names just a second or two off
+    if (fileStartTime > 0 && currentTime - fileStartTime > 60) fileStartTime = currentTime;
+    else if (fileStartTime == 0) fileStartTime = currentTime;
+
     String filename = "";
-    filename += year(currentTime);
-    filename += "-";
-    filename += month(currentTime);
-    filename += "-";
-    filename += day(currentTime);
-    filename += "_";
-    filename += hour(currentTime);
-    filename += "-";
-    filename += minute(currentTime);
-    filename += "-";
-    filename += second(currentTime);
+    filename += sensorPr.timeToStringDash(fileStartTime);
     if (extension == "fp")
     {
         filename += "_";
@@ -114,15 +113,13 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     // Write the header
     if (extension == "fp")
     {
-        sensor.printFingerprintHeader(file, "    ", source);
-        sensor.setDebugStream(&Serial);
-        sensor.printFingerprintHeader(Serial, "    ", source);
-        sensor.stopDebugging();
+        sensorPr.printFingerprintHeader(file, "    ", source);
+        sensorPr.printFingerprintHeader(Serial, "    ", source);
     }
     else
     {
-        sensor.printParameterHeader(file);
-        sensor.printParameterHeader(Serial);
+        sensorPr.printParameterHeader(file);
+        sensorPr.printParameterHeader(Serial);
     }
 
     //Close the file to save it
@@ -133,7 +130,10 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
 
 void writeToFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
-    time_t currentTime = sensor.getSystemTime();
+    // Make sure this is a new time
+    time_t lastSampleTimeCheck = sensor.getParameterTime();
+    if (lastSampleTimeCheck == lastSampleTime) return;
+    else lastSampleTime = lastSampleTimeCheck;
 
     // Check if the file already exists, else create a new one
     if (!sd.exists(filenameBuffer)) startFile(file, extension, filenameBuffer);
@@ -143,6 +143,8 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
 
     Serial.print(F("Writing to file "));
     Serial.println(filenameBuffer);
+
+    time_t currentTime = sensor.getSystemTime();
 
     // Open the file in write mode
     file.open(filenameBuffer, O_WRITE | O_AT_END);
@@ -164,13 +166,13 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     // Write the data
     if (extension == "fp")
     {
-        sensor.printFingerprintDataRow(file, "    ", source);
-        sensor.printFingerprintDataRow(Serial, "    ", source);
+        sensorPr.printFingerprintDataRow(file, "    ", source);
+        sensorPr.printFingerprintDataRow(Serial, "    ", source);
     }
     else
     {
-        sensor.printParameterDataRow(file);
-        sensor.printParameterDataRow(Serial);
+        sensorPr.printParameterDataRow(file);
+        sensorPr.printParameterDataRow(Serial);
     }
 
     //Close the file to save it
@@ -192,11 +194,11 @@ void setup()
     // The default baud rate for the spectro::lyzer is 38400, 8 data bits, odd parity, 1 stop bit
 
     // Start up the sensor
-    // sensor.begin(modbusAddress, &modbusSerial, DEREPin);
+    // sensorPr.begin(modbusAddress, &modbusSerial, DEREPin);
     sensor.begin(modbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
-    // sensor.setDebugStream(&Serial);
+    // sensorPr.setDebugStream(&Serial);
 
     // Start up note
     Serial.println("S::CAN Spect::lyzer Data Recording");

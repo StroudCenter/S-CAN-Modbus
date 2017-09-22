@@ -7,7 +7,6 @@
 
 #include <Arduino.h>
 #include <SensorModbusMaster.h>  // For modbus communication
-#include <TimeLib.h>  // for dealing with the TAI64/Unix time
 
 
 //----------------------------------------------------------------------------
@@ -92,7 +91,7 @@ public:
     //    - 1 stop bit if parity is used-2 bits if no parity
     // Note that neither SoftwareSerial, AltSoftSerial, nor NeoSoftwareSerial
     // will support the default odd parity!  This means you must either use a
-    // corretnly set up HARDWARE serial port on your Arduino or change the
+    // correctly set up HARDWARE serial port on your Arduino or change the
     // parity setting of the s::can using some other program before connecting
     // it to your Arduino.
     bool begin(byte modbusSlaveID, Stream *stream, int enablePin = -1);
@@ -144,12 +143,6 @@ public:
     void printParameterStatus(uint16_t bitmask, Stream &stream);
     // This gets calibrated data value
     float getParameterValue(int parmNumber);
-    // This prints the data from ALL parameters as delimeter separated data.
-    // By default, the delimeter is a TAB (\t, 0x09), as expected by the s::can/ana::xxx software.
-    // This includes the parameter timestamp and status.
-    // NB:  You can use this to print to a file on a SD card!
-    void printParameterDataRow(Stream *stream, const char *dlm="    ");
-    void printParameterDataRow(Stream &stream, const char *dlm="    ");
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
     uint32_t getFingerprintTime(spectralSource source=fingerprint);
@@ -175,30 +168,6 @@ public:
                               spectralSource source=fingerprint);
     void printFingerprintData(Stream &stream, const char *dlm="    ",
                               spectralSource source=fingerprint);
-    // This is as above, but includes the fingerprint timestamp and status
-    // NB:  You can use this to print to a file on a SD card!
-    void printFingerprintDataRow(Stream *stream, const char *dlm="    ",
-                              spectralSource source=fingerprint);
-    void printFingerprintDataRow(Stream &stream, const char *dlm="    ",
-                              spectralSource source=fingerprint);
-
-
-    // This prints out a time, formatted as YYYY.MM.DD hh:mm:ss
-    void printTime(uint32_t time, Stream *stream, bool addNL=true);
-    void printTime(uint32_t time, Stream &stream, bool addNL=true);
-    // This is for the first line of both headers (below)
-    void printFirstLine(Stream *stream);
-    void printFirstLine(Stream &stream);
-    // This prints out a header for a "par" file ini the format that the
-    // s::can/ana::xxx software is expecting
-    // The delimeter is changable, but if you use anything other than the
-    // default TAB (\t, 0x09) the s::can/ana::xxx software will not read it.
-    void printParameterHeader(Stream *stream, const char *dlm="    ");
-    void printParameterHeader(Stream &stream, const char *dlm="    ");
-    // This prints out a header for a "fp" file ini the format that the
-    // s::can/ana::xxx software is expecting
-    void printFingerprintHeader(Stream *stream, const char *dlm="    ", spectralSource source=fingerprint);
-    void printFingerprintHeader(Stream &stream, const char *dlm="    ", spectralSource source=fingerprint);
 
 
 
@@ -391,11 +360,6 @@ public:
     // NB:  You can use this to print to a file on a SD card!
     void printReferenceData(int refNumber, Stream *stream, const char *dlm="    ");
     void printReferenceData(int refNumber, Stream &stream, const char *dlm="    ");
-
-    // This is as above, but includes the reference name and timestamp
-    // NB:  You can use this to print to a file on a SD card!
-    void printReferenceDataRow(int refNumber, Stream *stream, const char *dlm="    ");
-    void printReferenceDataRow(int refNumber, Stream &stream, const char *dlm="    ");
 
 
 //----------------------------------------------------------------------------
