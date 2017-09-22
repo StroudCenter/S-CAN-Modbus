@@ -137,10 +137,16 @@ public:
 
     // Last measurement time as a 32-bit count of seconds from Jan 1, 1970
     uint32_t getParameterTime(void);
+    // This gets any general errors regarding the measured parameters (parameter status public)
     uint16_t getParameterStatus(int parmNumber);
     // This parses the parameter status bitmap and prints the resuts to the stream
     void printParameterStatus(uint16_t bitmask, Stream *stream);
     void printParameterStatus(uint16_t bitmask, Stream &stream);
+    // This gets any specific errors for the spectrometer itself (sensor status private)
+    uint16_t getSpecStatus(int parmNumber);
+    // This parses the sensor status bitmap and prints the resuts to the stream
+    void printSpecStatus(uint16_t bitmask, Stream *stream);
+    void printSpecStatus(uint16_t bitmask, Stream &stream);
     // This gets calibrated data value
     float getParameterValue(int parmNumber);
 
