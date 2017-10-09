@@ -32,6 +32,48 @@ bool scan::printSetup(Stream *stream)
     // the byte location in the frame of the desired register use:
     // (3 bytes of Modbus header + (2 bytes/register x (desired register - start register))
 
+    // Get some of the register input that it's a pain to pull up separtely
+    stream->println("------------------------------------------");
+
+    stream->print("Modbus Version is: ");
+    stream->println(getModbusVersion());
+    stream->print("Hardware Version is: ");
+    stream->println(getHWVersion());
+    stream->print("Software Version is: ");
+    stream->println(getSWVersion());
+
+    // Get rest of the input registers
+    int parmCount;
+    if (modbus.getRegisters(0x04, 0, 25))
+    {
+        // Setup information from input registers
+
+        stream->print("Instrument model is: ");
+        stream->println(modbus.StringFromFrame(20, 9));
+
+        stream->print("Instrument Serial Number is: ");
+        stream->println(modbus.StringFromFrame(8, 29));
+
+        stream->print("Hardware has been restarted: ");
+        stream->print(modbus.int16FromFrame(bigEndian, 45));
+        stream->println(" times");
+
+        stream->print("There are ");
+        parmCount = modbus.int16FromFrame(bigEndian, 47);
+        stream->print(parmCount);
+        stream->println(" parameters being measured");
+
+        stream->print("The data type of the parameters is: ");
+        stream->print(modbus.int16FromFrame(bigEndian, 49));
+        stream->print(" (");
+        stream->print(parseParameterType(modbus.int16FromFrame(bigEndian, 49)));
+        stream->println(")");
+
+        stream->print("The parameter scale factor is: ");
+        stream->println(modbus.int16FromFrame(bigEndian, 51));
+    }
+    else return false;
+
     // Get the holding registers
     stream->println("------------------------------------------");
     if (modbus.getRegisters(0x03, 0, 27))
@@ -110,48 +152,6 @@ bool scan::printSetup(Stream *stream)
     }
     else return false;
 
-    // Get some of the register input that it's a pain to pull up separtely
-    stream->println("------------------------------------------");
-
-    stream->print("Modbus Version is: ");
-    stream->println(getModbusVersion());
-    stream->print("Hardware Version is: ");
-    stream->println(getHWVersion());
-    stream->print("Software Version is: ");
-    stream->println(getSWVersion());
-
-    // Get rest of the input registers
-    int parmCount;
-    if (modbus.getRegisters(0x04, 0, 25))
-    {
-        // Setup information from input registers
-
-        stream->print("Instrument model is: ");
-        stream->println(modbus.StringFromFrame(20, 9));
-
-        stream->print("Instrument Serial Number is: ");
-        stream->println(modbus.StringFromFrame(8, 29));
-
-        stream->print("Hardware has been restarted: ");
-        stream->print(modbus.int16FromFrame(bigEndian, 45));
-        stream->println(" times");
-
-        stream->print("There are ");
-        parmCount = modbus.int16FromFrame(bigEndian, 47);
-        stream->print(parmCount);
-        stream->println(" parameters being measured");
-
-        stream->print("The data type of the parameters is: ");
-        stream->print(modbus.int16FromFrame(bigEndian, 49));
-        stream->print(" (");
-        stream->print(parseParameterType(modbus.int16FromFrame(bigEndian, 49)));
-        stream->println(")");
-
-        stream->print("The parameter scale factor is: ");
-        stream->println(modbus.int16FromFrame(bigEndian, 51));
-    }
-    else return false;
-
     // Get the parameter info
     for (int i = 1; i < parmCount+1; i++)
     {
@@ -168,6 +168,14 @@ bool scan::printSetup(Stream *stream)
         stream->print(getParameterUpperLimit(i));
         stream->println(".");
     }
+
+    // Get the global calibration and reference in use
+    stream->println("------------------------------------------");
+
+    stream->print("The current global calibration is: ");
+    stream->println(getCurrentGlobalCal());
+    stream->print("The current reference is: ");
+    stream->println(getCurrentReferenceName());
 
     // if all passed, return true
     stream->println("------------------------------------------");
@@ -252,8 +260,8 @@ void scan::printSystemStatus(uint16_t bitmask, Stream &stream)
 
 // This sends three requests for a single register
 // If the spectro::lyzer is sleeping, it will not respond until the third one
-// Alternately, we could send " Weckzeichen" (German for "Ringtone") three
-// times before each command, which is what ana::lyte and ana::pro do.
+// Alternately, we could send " Weckzeichen" (German for "Ringtone")
+// before each command, which is what ana::lyte and ana::pro do.
 // " Weckzeichen" = 0x20, 0x57, 0x65, 0x63, 0x6b, 0x7a, 0x65, 0x69, 0x63, 0x68, 0x65, 0x6e
 bool scan::wakeSpec(void)
 {
@@ -447,22 +455,24 @@ uint16_t scan::getFingerprintStatus(spectralSource source)
 // int scan::getFingerprintData(float fpArray[], spectralSource source)
 // {
 //     int startingReg = 522 + 512*source;
+//     byte regType = 0x04;
+//     int totalValues = 221;
 //
 //     // Get the register data in several batches
-//     int valuesPerCall = 30;
-//     int totalValues = 221;
-//     for (int j = 0; j < totalValues;)
+//        int valuesRemaining;
+//        int numRegsThisCall;
+//        float pointVal;
+//     for (int currentValueBeingRead = 0; currentValueBeingRead < totalValues;)
 //     {
-//         int valuesRemaining = totalValues - j;
-//         int regToCall;
-//         if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
-//         else regToCall = valuesPerCall*2;
-//         modbus.getRegisters(0x04, startingReg + j*2, regToCall);
-//         for (int i = 0; i < valuesPerCall; i++)
+//         valuesRemaining = totalValues - currentValueBeingRead;
+//         if (valuesRemaining < (MAX_REGS_PER_FRAME/2)) numRegsThisCall = valuesRemaining*2;
+//         else numRegsThisCall = MAX_REGS_PER_FRAME;
+//         modbus.getRegisters(regType, startingReg + currentValueBeingRead*2, numRegsThisCall);
+//         for (int valueInThisCall = 0; valueInThisCall < (numRegsThisCall/2); valueInThisCall++)
 //         {
-//             float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
-//             fpArray[i+j] = pointVal;
-//             j++;
+//             pointVal = modbus.float32FromFrame(bigEndian, (valueInThisCall*4 + 3));
+//             fpArray[i+currentValueBeingRead] = pointVal;
+//             currentValueBeingRead++;
 //         }
 //     }
 //
@@ -478,23 +488,27 @@ uint16_t scan::getFingerprintStatus(spectralSource source)
 void scan::printFingerprintData(Stream *stream, const char *dlm, spectralSource source)
 {
         int startingReg = 522 + 512*source;
+        byte regType = 0x04;
+        int totalValues = 221;
 
         // Get the register data in several batches
-        int valuesPerCall = 30;
-        int totalValues = 221;
-        for (int j = 0; j < totalValues;)
+        int valuesRemaining;
+        int numRegsThisCall;
+        int firstRegThisCall;
+        float pointVal;
+        for (int currentValueBeingRead = 0; currentValueBeingRead < totalValues;)
         {
-            int valuesRemaining = totalValues - j;
-            int regToCall;
-            if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
-            else regToCall = valuesPerCall*2;
-            modbus.getRegisters(0x04, startingReg + j*2, regToCall);
-            for (int i = 0; i < valuesPerCall; i++)
+            valuesRemaining = totalValues - currentValueBeingRead;
+            if (valuesRemaining < (MAX_REGS_PER_FRAME/2)) numRegsThisCall = valuesRemaining*2;
+            else numRegsThisCall = MAX_REGS_PER_FRAME;
+            firstRegThisCall = startingReg + currentValueBeingRead*2;
+            modbus.getRegisters(regType, firstRegThisCall, numRegsThisCall);
+            for (int valueInThisCall = 0; valueInThisCall < (numRegsThisCall/2); valueInThisCall++)
             {
-                float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
-                if (i+j < totalValues+1) stream->print(pointVal, 4);
-                if (i+j < totalValues) stream->print(dlm);
-                j++;
+                pointVal = modbus.float32FromFrame(bigEndian, (valueInThisCall*4 + 3));
+                if (currentValueBeingRead < totalValues) stream->print(pointVal, 4);
+                if (currentValueBeingRead < totalValues-1) stream->print(dlm);
+                currentValueBeingRead++;
             }
         }
         stream->println();
@@ -605,7 +619,7 @@ String scan::parseRegisterType(uint16_t code)
 // and save data transfer time.
 String scan::getCurrentGlobalCal(void)
 {
-    if (getModelType() == 0x0101) return modbus.StringFromRegister(0x03, 1180, 12);
+    if (getModelType() == 0x0101) return modbus.StringFromRegister(0x03, 1080, 12);
     else return modbus.StringFromRegister(0x03, 964, 12);
     /*
     byte regType;
@@ -664,7 +678,8 @@ String scan::parseCleaningMode(uint16_t code)
 }
 
 
-// Functions for the cleaning interval (ie, number of samples between cleanings)
+// Functions for the automatic cleaning interval in seconds
+// (0 - no automatic cleaning enabled)
 // Cleaning interval is in holding register 13 (1 uint16 register)
 int scan::getCleaningInterval(void)
 {return modbus.uint16FromRegister(0x03, 13);}
@@ -815,7 +830,7 @@ float scan::getParameterCalibX3(int parmNumber)
 // Totally a wag as to the location
 uint16_t scan::getParameterPrecision(int parmNumber)
 {
-    int startingReg = 120*parmNumber + 26;
+    int startingReg = 120*parmNumber + 27;
     return modbus.uint16FromRegister(0x03, startingReg, bigEndian);
 }
 
@@ -940,22 +955,24 @@ uint32_t scan::getReferenceTime(int refNumber)
 // void scan::getReferenceValues(float refArray[], int refNumber)
 // {
 //     int startingReg = 1542 + 536*refNumber;
+    byte regType = 0x03;
+//     int totalValues = 256;
 //
 //     // Get the register data in several batches
-//     int valuesPerCall = 30;
-//     int totalValues = 256;
-//     for (int j = 0; j < totalValues;)
+//     int valuesRemaining;
+//     int numRegsThisCall;
+//     float pointVal;
+//     for (int currentValueBeingRead = 0; currentValueBeingRead < totalValues;)
 //     {
-//         int valuesRemaining = totalValues - j;
-//         int regToCall;
-//         if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
-//         else regToCall = valuesPerCall*2;
-//         modbus.getRegisters(0x04, startingReg + j*2, regToCall);
-//         for (int i = 0; i < valuesPerCall; i++)
+//         valuesRemaining = totalValues - currentValueBeingRead;
+//         if (valuesRemaining < (MAX_REGS_PER_FRAME/2)) numRegsThisCall = valuesRemaining*2;
+//         else numRegsThisCall = MAX_REGS_PER_FRAME;
+//         modbus.getRegisters(regType, startingReg + currentValueBeingRead*2, numRegsThisCall);
+//         for (int valueInThisCall = 0; valueInThisCall < (numRegsThisCall/2); valueInThisCall++)
 //         {
-//             float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
-//             refArray[i+j] = pointVal;
-//             j++;
+//             pointVal = modbus.float32FromFrame(bigEndian, (valueInThisCall*4 + 3));
+//             refArray[i+currentValueBeingRead] = pointVal;
+//             currentValueBeingRead++;
 //         }
 //     }
 // }
@@ -966,23 +983,25 @@ uint32_t scan::getReferenceTime(int refNumber)
 void scan::printReferenceData(int refNumber, Stream *stream, const char *dlm)
 {
     int startingReg = 1542 + 536*refNumber;
+    byte regType = 0x03;
+    int totalValues = 256;
 
     // Get the register data in several batches
-    int valuesPerCall = 30;
-    int totalValues = 221;
-    for (int j = 0; j < totalValues;)
+    int valuesRemaining;
+    int numRegsThisCall;
+    float pointVal;
+    for (int currentValueBeingRead = 0; currentValueBeingRead < totalValues;)
     {
-        int valuesRemaining = totalValues - j;
-        int regToCall;
-        if (valuesRemaining < valuesPerCall) regToCall = valuesRemaining*2;
-        else regToCall = valuesPerCall*2;
-        modbus.getRegisters(0x04, startingReg + j*2, regToCall);
-        for (int i = 0; i < valuesPerCall; i++)
+        valuesRemaining = totalValues - currentValueBeingRead;
+        if (valuesRemaining < (MAX_REGS_PER_FRAME/2)) numRegsThisCall = valuesRemaining*2;
+        else numRegsThisCall = MAX_REGS_PER_FRAME;
+        modbus.getRegisters(regType, startingReg + currentValueBeingRead*2, numRegsThisCall);
+        for (int valueInThisCall = 0; valueInThisCall < (numRegsThisCall/2); valueInThisCall++)
         {
-            float pointVal = modbus.float32FromFrame(bigEndian, (i*4 + 3));
-            if (i+j < totalValues+1) stream->print(pointVal, 4);
-            if (i+j < totalValues) stream->print(dlm);
-            j++;
+            pointVal = modbus.float32FromFrame(bigEndian, (valueInThisCall*4 + 3));
+            if (valueInThisCall+currentValueBeingRead < totalValues+1) stream->print(pointVal, 4);
+            if (valueInThisCall+currentValueBeingRead < totalValues) stream->print(dlm);
+            currentValueBeingRead++;
         }
     }
     stream->println();

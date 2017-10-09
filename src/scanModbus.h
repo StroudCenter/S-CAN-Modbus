@@ -8,6 +8,10 @@
 #include <Arduino.h>
 #include <SensorModbusMaster.h>  // For modbus communication
 
+#define MAX_REGS_PER_FRAME 60  // The largest number of registers to call at once
+// Per modbus specs, this can be as high as 124, but my Arduino stumbles with that
+// many, so I've cut it down.
+
 
 //----------------------------------------------------------------------------
 //                        ENUMERATIONS FOR CONFIGURING DEVICE
@@ -40,9 +44,9 @@ typedef enum specParity
 // The possible cleaning modes
 typedef enum cleaningMode
 {
-    noCleaning = 0,
-    manual,
-    automatic
+    cleaningOff = 0,
+    cleaningOn,
+    cleaningAuto
 } cleaningMode;
 
 // The possible spectral sources
@@ -214,16 +218,19 @@ public:
     String getScanPoint(void);
     bool setScanPoint(char charScanPoint[12]);
 
-    // Functions for the cleaning mode configuration
-    // My spec does NOT respond properly to this command.
+    // Functions for manually turning on and off the cleaning valve
+    // Setting the cleaning mode to cleaningOn (1) will open the cleaning valve
+    // and the valve will remain open until the cleaning mode is reset to
+    // cleaningOff (0).  Setting the cleaning mode to cleaningAutomatic (2)
+    // does not appear to work.
     int getCleaningMode(void);
     bool setCleaningMode(cleaningMode mode);
     String parseCleaningMode(uint16_t code);
 
-    // Functions for the cleaning interval (ie, number of samples between cleanings)
-    // My spec does NOT respond properly to this command.
+    // Functions for the automatic cleaning interval in seconds
+    // (0 - no automatic cleaning enabled)
     int getCleaningInterval(void);
-    bool setCleaningInterval(uint16_t intervalSamples);
+    bool setCleaningInterval(uint16_t interval);
 
     // Functions for the cleaning duration in seconds
     int getCleaningDuration(void);
@@ -248,7 +255,7 @@ public:
     bool setLoggingMode(uint8_t mode);
     String parseLoggingMode(uint16_t code);
 
-    // Functions for the ogging interval for data logger in minutes
+    // Functions for the logging interval for data logger in minutes
     // (0 = no logging active)
     // My spec is not responding to the set command at this time
     int getLoggingInterval(void);

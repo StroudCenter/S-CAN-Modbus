@@ -20,8 +20,7 @@ void anapro::printFirstLine(Stream *stream)
     stream->print("_");
     stream->print(_scanMB->getModel());
     stream->print("_");
-    stream->print(_scanMB->getCurrentGlobalCal());
-    stream->println("	This file contains data of the current measurement.");
+    stream->println(_scanMB->getCurrentGlobalCal());
 
 }
 void anapro::printFirstLine(Stream &stream){printFirstLine(&stream);}
@@ -139,7 +138,7 @@ String anapro::Str2Digit(int value)
     return str;
 }
 
-// This converts a unix timestamp to a string formatted as YYYY.MM.DD hh:mm:ss
+// This converts a unix timestamp to a string formatted as YYYY.MM.DD  hh:mm:ss
 String anapro::timeToStringDot(time_t time)
 {
     String strTime = "";
@@ -149,7 +148,7 @@ String anapro::timeToStringDot(time_t time)
     strTime += Str2Digit(month(time));
     strTime += ".";
     strTime += Str2Digit(day(time));
-    strTime += " ";
+    strTime += "  ";
     strTime += Str2Digit(hour(time));
     strTime += ":";
     strTime += Str2Digit(minute(time));
