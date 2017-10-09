@@ -619,8 +619,8 @@ String scan::parseRegisterType(uint16_t code)
 // and save data transfer time.
 String scan::getCurrentGlobalCal(void)
 {
-    if (getModelType() == 0x0101) return modbus.StringFromRegister(0x03, 1080, 12);
-    else return modbus.StringFromRegister(0x03, 964, 12);
+    if (getModelType() == 0x0603) return modbus.StringFromRegister(0x04, 964, 12);
+    else return modbus.StringFromRegister(0x03, 1080, 12);
     /*
     byte regType;
     switch (getprivateConfigRegisterType())
@@ -670,9 +670,9 @@ String scan::parseCleaningMode(uint16_t code)
 {
     switch (code)
     {
-        case 0: return "no cleaning supported";
-        case 1: return "manual";
-        case 2: return "automatic";
+        case 0: return "Cleaning valve currently closed";
+        case 1: return "Cleaning valve currently open";
+        case 2: return "Cleaning is set to automatic";
         default: return "Unknown";
     }
 }
@@ -1045,8 +1045,7 @@ String scan::getSerialNumber(void)
 // This gets the hardware version of the sensor
 float scan::getHWVersion(void)
 {
-    modbus.getRegisters(0x04, 17, 2);
-    String _model = modbus.StringFromFrame(4);
+    String _model = modbus.StringFromRegister(0x04, 17, 4);
     float mjv = _model.substring(0,2).toFloat();
     float mnv = (_model.substring(2,4).toFloat())/100;
     float version = mjv + mnv;
@@ -1056,8 +1055,7 @@ float scan::getHWVersion(void)
 // This gets the software version of the sensor
 float scan::getSWVersion(void)
 {
-    modbus.getRegisters(0x04, 19, 2);
-    String _model = modbus.StringFromFrame(4);
+    String _model = modbus.StringFromRegister(0x04, 19, 4);
     float mjv = _model.substring(0,2).toFloat();
     float mnv = (_model.substring(2,4).toFloat())/100;
     float version = mjv + mnv;

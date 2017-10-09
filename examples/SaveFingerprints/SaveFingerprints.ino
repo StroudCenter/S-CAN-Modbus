@@ -29,7 +29,7 @@ rather than using any other internal or external clock.
 // ---------------------------------------------------------------------------
 
 // Define how often you want to log
-uint32_t logging_interval_minutes = 1L;
+uint32_t logging_interval_minutes = 2L;
 uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
 
 // Define the button you will press to begin the program
@@ -50,6 +50,7 @@ scan sensor;
 // Construct the "ana::pro" instance for printing formatted strings
 anapro sensorPr(&sensor);
 static time_t lastSampleTime;
+bool isSpec;  // as opposed to a controller with ana::gate
 
 // A global variable for the filename
 String fileName;
@@ -113,8 +114,8 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     // Write the header
     if (extension == "fp")
     {
-        sensorPr.printFingerprintHeader(file, "    ", source);
-        sensorPr.printFingerprintHeader(Serial, "    ", source);
+        sensorPr.printFingerprintHeader(file, "\t", source);
+        sensorPr.printFingerprintHeader(Serial, "\t", source);
     }
     else
     {
@@ -131,9 +132,9 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
 void writeToFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
     // Make sure this is a new time
-    time_t lastSampleTimeCheck = sensor.getParameterTime();
-    if (lastSampleTimeCheck == lastSampleTime) return;
-    else lastSampleTime = lastSampleTimeCheck;
+    // time_t lastSampleTimeCheck = sensor.getParameterTime();
+    // if (lastSampleTimeCheck == lastSampleTime) return;
+    // else lastSampleTime = lastSampleTimeCheck;
 
     // Check if the file already exists, else create a new one
     if (!sd.exists(filenameBuffer)) startFile(file, extension, filenameBuffer);
@@ -166,8 +167,8 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     // Write the data
     if (extension == "fp")
     {
-        sensorPr.printFingerprintDataRow(file, "    ", source);
-        sensorPr.printFingerprintDataRow(Serial, "    ", source);
+        sensorPr.printFingerprintDataRow(file, "\t", source);
+        sensorPr.printFingerprintDataRow(Serial, "\t", source);
     }
     else
     {
@@ -198,7 +199,7 @@ void setup()
     sensor.begin(modbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
-    // sensorPr.setDebugStream(&Serial);
+    // sensor.setDebugStream(&Serial);
 
     // Start up note
     Serial.println("S::CAN Spect::lyzer Data Recording");
@@ -218,21 +219,47 @@ void setup()
         delay(500);
     }
 
-    // Print out all of the setup information
-    sensor.wakeSpec();
+    if (sensor.getModelType() == 0x0603) isSpec = false;
+    else isSpec = true;
+
+    if (isSpec)
+    {
+        // Turn off logging just in case it had been on.
+        sensor.setLoggingMode(1);
+        // Re-set the logging interval
+        Serial.println("Set the measurement interval to ");
+        Serial.print(logging_interval_minutes);
+        Serial.println(" minute[s]");
+        sensor.setMeasInterval(logging_interval_minutes*60);
+        Serial.print("Current measurement interval is: ");
+        Serial.print(sensor.getMeasInterval());
+        Serial.println(" seconds");
+    }
+
+    // Print out the device setup
     sensor.printSetup(Serial);
     Serial.println("=======================");
-
-    // Print out the device status
-    uint16_t status;
-    status = sensor.getDeviceStatus();
-    Serial.print("Current device status is: ");
-    Serial.println(status, BIN);
-    sensor.printDeviceStatus(status, Serial);
     Serial.println("=======================");
 
+    if (isSpec)
+    {
+        // Wait for an even interval of the logging interval to start the logging
+        uint32_t now = sensor.getSystemTime();
+        uint32_t secToWait = now % (logging_interval_minutes*60);
+        Serial.print("Current time is ");
+        Serial.println(now);
+        Serial.print("Waiting ");
+        Serial.print(secToWait);
+        Serial.println(" seconds to begin logging at an even interval");
+        delay((secToWait*1000) - 500);  // send the command half a second early
 
-    // Initialise the SD card
+        Serial.println("Turning on Logging");
+        sensor.setLoggingMode(0);
+        Serial.println("Waiting for spectro::lyser to be ready after measurement.");
+        delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
+    }
+
+    // Initialise the SD card while waiting for registers to be ready
     if (!sd.begin(SDCardPin, SPI_FULL_SPEED))
     {
         Serial.println(F("Error: SD card failed to initialize or is missing."));
@@ -245,14 +272,21 @@ void setup()
 
         startFile(parFile, "par", parFileName);
         startFile(fpFile0, "fp", fpFileName0, fingerprint);
-        startFile(fpFile1, "fp", fpFileName1, compensFP);
-        startFile(fpFile2, "fp", fpFileName2, derivFP);
-        startFile(fpFile3, "fp", fpFileName3, diff2oldorgFP);
-        startFile(fpFile4, "fp", fpFileName4, transmission);
-        startFile(fpFile5, "fp", fpFileName5, derivcompFP);
-        startFile(fpFile6, "fp", fpFileName6, transmission10);
-        startFile(fpFile7, "fp", fpFileName7, other);
+        if (isSpec)
+        {
+            startFile(fpFile1, "fp", fpFileName1, compensFP);
+            startFile(fpFile2, "fp", fpFileName2, derivFP);
+            startFile(fpFile3, "fp", fpFileName3, diff2oldorgFP);
+            startFile(fpFile4, "fp", fpFileName4, transmission);
+            startFile(fpFile5, "fp", fpFileName5, derivcompFP);
+            startFile(fpFile6, "fp", fpFileName6, transmission10);
+            startFile(fpFile7, "fp", fpFileName7, other);
+        }
     }
+
+    // Wait to allow spec to take data and put it into registers
+    Serial.println("Waiting for the first measurement results to be ready");
+    while (sensor.getParameterTime() == 0){delay(250);};
 }
 
 // ---------------------------------------------------------------------------
@@ -277,13 +311,16 @@ void loop()
         sensor.wakeSpec();
         writeToFile(parFile, "par", parFileName);
         writeToFile(fpFile0, "fp", fpFileName0, fingerprint);
-        writeToFile(fpFile1, "fp", fpFileName1, compensFP);
-        writeToFile(fpFile2, "fp", fpFileName2, derivFP);
-        writeToFile(fpFile3, "fp", fpFileName3, diff2oldorgFP);
-        writeToFile(fpFile4, "fp", fpFileName4, transmission);
-        writeToFile(fpFile5, "fp", fpFileName5, derivcompFP);
-        writeToFile(fpFile6, "fp", fpFileName6, transmission10);
-        writeToFile(fpFile7, "fp", fpFileName7, other);
+        if (isSpec)
+        {
+            writeToFile(fpFile1, "fp", fpFileName1, compensFP);
+            writeToFile(fpFile2, "fp", fpFileName2, derivFP);
+            writeToFile(fpFile3, "fp", fpFileName3, diff2oldorgFP);
+            writeToFile(fpFile4, "fp", fpFileName4, transmission);
+            writeToFile(fpFile5, "fp", fpFileName5, derivcompFP);
+            writeToFile(fpFile6, "fp", fpFileName6, transmission10);
+            writeToFile(fpFile7, "fp", fpFileName7, other);
+        }
     }
 
     // track how long the loop took
