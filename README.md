@@ -55,7 +55,7 @@ This data can be accessed, but not changed
     - only the single most recent data point is available
 
 _______
-#Available Examples and Utilities
+# Available Examples and Utilities
 
 These examples are in the "examples" folder:
 - "GetParameterValues" puts the spectro::lyzer into logging mode at 5-minute intervals and then prints the parameter values to the serial port every 5 minutes.
