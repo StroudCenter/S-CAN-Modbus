@@ -3,6 +3,8 @@ This library was created to communicate between an Arduino device and an [s::can
 
 In our arrangements, we are powering both the spectro::lyzer and the Arduino by way of an [s::can con:nect](http://www.s-can.at/en/products/terminals-software#).  The con::nect itself is powered by a deep cycle marine battery with an attached solar panel.  The con::nect is also necessary for the RS485 terminals.  The RS-485 A and B terminals on the con::nect are wired to a RS-485 to TTL board and from there to the serial port of the Arduino.  When looking for an adapter board, be mindful of the TTL voltage levels!  Because of the large quanitities of data going quickly between the Arduino and the spectro::lyzer, I very strongly reccommend using a hardware serial port on the Arduino.  Hardware serial is also the only connection method which supports the spectro::lyzer's default of _odd_ parity.
 
+It is also possible to use this library to communicate with a con::cube, con::stat, or other s::can controller by way of ana::gate in Serial/RTU mode.  The modbus map for ana::gate is very similar, but not identical to the map for directly communicating wih the spectro::lyzer.  The major difference is that when communicating with the spectro::lyzer directly, data is only accessible when the device is in logging mode but when communicating through ana::gate, the data is available when the device is in automatic or manual logging mode but not while in logging mode.
+
 Please be cautious when using this library as much of the modbus mapping is not documented by s::can (including the registers containing the fingerprint data).  Some of the documented functions actually do not work as described, either.  The most completely mapping s::can provides of the modbus registers is in the manual for the con::cube, but this is still woefully incomplete.  The remainder of the mapping I figured out myself by repeatedly scanning all of the registers on the spectro::lyzer and comparing the results with the data available in ana::pro.  (I used the "[scanRegisters](https://github.com/EnviroDIY/SensorModbusMaster/blob/master/utils/scanRegisters/scanRegisters.ino)" utility in the [SensorModbusMaster](https://github.com/EnviroDIY/SensorModbusMaster) library for this.)  The [FullSpecModbusMap.xlsx](https://github.com/StroudCenter/S-CAN-Modbus/blob/master/FullSpecModbusMap.xlsx) in this folder is my best guess of the full register mapping.  There are still holes in my modbus map (which s::can has not been forthcoming about filling), so if you have any further information about the modbus mappings of the spectro::lyzer, PLEASE let me know.  All issues and pull requests are welcome.  NONE of this is in any way, shape, or form sanctioned by s::can!  Please **do not blame me if you "brick" your spec!**  Also, **do not expect help or support from the s::can company** in basically anything (related to modbus, broken instruments, anything).  They will most likely tell you that your equipment must go back to Vienna to be fixed.
 _______
 
@@ -10,14 +12,14 @@ _______
 Note:  Only change one setting at a time.  Ie., first change the serial baud rate, disconnect and reconnect the spec, then change the parity in a separate modbus call.
 - Sensor modbus address
 - Serial port settings (baudrate/parity)
-- Initiating logging mode (undocumented)
-- Setting the measurement interval
-- Opening and closing the cleaning valve
-- Setting the interval, duration, and wait period
+- Initiating logging mode (when communicating directly with spectro::lyser, undocumented)
+- Setting the measurement interval (when communicating directly with spectro::lyser)
+- Opening and closing the cleaning valve (when communicating directly with spectro::lyser)
+- Setting the cleaning interval, duration, and wait period (when communicating directly with spectro::lyser)
 
 
 ## Specto::lyzer settings NOT changable via modbus
-- Sleep mode settings
+- Enabling and disabling sleep mode
 - Measurement parameters (flashrate, lamp voltage, etc)
 
 ## Further specto::lyzer settings accessible via modbus
@@ -38,24 +40,23 @@ This data can be accessed, but not changed
 - Time and status of fingerprint measurements (single most recent measurement, only when in logging mode, undocumented)
 - Full spectral values of 8 types of fingerprint data  (single most recent measurement, only when in logging mode, undocumented)
     - 0 … Fingerprint [Abs/m]
-    - 1 … Turbidity compensated fingerprint [Abs/m]
-    - 2 … First derivative of fingerprint [Abs/m/m]
-    - 3 … Difference between current print and print in memory [Abs/m]
-    - 4 … Percent Transmission [%/cm2]
-    - 5 … First derivative of turbidity compensated fingerprint  [Abs/m/m]
-    - 6 … Percent Transmission per 10cm2  [%/10cm2]
-    - 7 … UNKNOWN
+    - 1 … Turbidity compensated fingerprint [Abs/m] (when communicating directly with spectro::lyser)
+    - 2 … First derivative of fingerprint [Abs/m/m] (when communicating directly with spectro::lyser)
+    - 3 … Difference between current print and print in memory [Abs/m] (when communicating directly with spectro::lyser)
+    - 4 … Percent Transmission [%/cm2] (when communicating directly with spectro::lyser)
+    - 5 … First derivative of turbidity compensated fingerprint  [Abs/m/m] (when communicating directly with spectro::lyser)
+    - 6 … Percent Transmission per 10cm2  [%/10cm2] (when communicating directly with spectro::lyser)
+    - 7 … UNKNOWN (when communicating directly with spectro::lyser)
 
 ## Data NOT accessible via modbus
 - Partial least squares components underlying global calibrations
 - Sample data used for local calibrations
 - "Historical" measurement data
     - only the single most recent data point is available
-- Any data when the logger is not in "logging" mode
-    - If the logger is connected to ana::pro, ana::lyte, or moni::tools and recording data in either manual or automatic mode, the data sent to the controller will not be accessible via modbus.  To get data in this case, the data must be accessed through ana::gate.
 
 _______
 #Available Examples and Utilities
+
 These examples are in the "examples" folder:
 - "GetParameterValues" puts the spectro::lyzer into logging mode at 5-minute intervals and then prints the parameter values to the serial port every 5 minutes.
 - "SaveFingerprints" queries the spectro::lyzer and attempts to exactly re-create s::can's "par" and "fp" files on an SD card.  It does _not_ start the spectro::lyzer logging or make any attempt to change any of the spectro::lyzer's settings.  It also does not put the Arduino to sleep between readings; even when fully active the Arduino only consumes ~1/10th of the power used by a sleeping spectro::lyzer.
