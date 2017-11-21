@@ -17,7 +17,8 @@ and then puts the spec into logging mode and prints out the data.
 // ---------------------------------------------------------------------------
 
 // Define how often you want to log
-uint32_t logging_interval_minutes = 1L;
+bool startLogger = false;  // if you want to use this program to start logging
+uint32_t logging_interval_minutes = 2L;
 uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
 
 // Define the button you will press to begin the program
@@ -30,8 +31,6 @@ byte modbusAddress = 0x04;  // The sensor's modbus address, or SlaveID
 // Define pin number variables
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
                           // on the RS485 adapter, if applicable (else, -1)
-                          // Setting HIGH enables the driver (arduino) to send text
-                          // Setting LOW enables the receiver (sensor) to send text
 
 // Construct the S::CAN modbus instance
 scan sensor;
@@ -77,7 +76,7 @@ void setup()
     if (sensor.getModelType() == 0x0603) isSpec = false;
     else isSpec = true;
 
-    if (isSpec)
+    if (isSpec && startLogger)
     {
         // Turn off logging just in case it had been on.
         sensor.setLoggingMode(1);
@@ -86,6 +85,9 @@ void setup()
         Serial.print(logging_interval_minutes);
         Serial.println(" minute[s]");
         sensor.setMeasInterval(logging_interval_minutes*60);
+    }
+    else if (isSpec)
+    {
         Serial.print("Current measurement interval is: ");
         Serial.print(sensor.getMeasInterval());
         Serial.println(" seconds");
@@ -96,7 +98,7 @@ void setup()
     Serial.println("=======================");
     Serial.println("=======================");
 
-    if (isSpec)
+    if (isSpec && startLogger)
     {
         // Wait for an even interval of the logging interval to start the logging
         uint32_t now = sensor.getSystemTime();
@@ -111,15 +113,13 @@ void setup()
         Serial.println("Turning on Logging");
         sensor.setLoggingMode(0);
         Serial.println("Waiting for spectro::lyser to be ready after measurement.");
-        delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
-    }
 
-    // Wait to allow spec to take data and put it into registers
-    Serial.println("Waiting for the first measurement results to be ready");
-    Serial.println("This takes nearly a minute!!");
-    delay(55000);
-    // while (sensor.getParameterTime() == 0){};
-    // Serial.println((millis() - now));
+        // delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
+        // while (sensor.getParameterTime() == 0){};
+        // display.println((millis() - now));
+        delay(55000);
+    }
+    else while (sensor.getParameterTime() == 0){};
 }
 
 // ---------------------------------------------------------------------------

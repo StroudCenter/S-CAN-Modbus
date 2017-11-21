@@ -50,14 +50,14 @@ public:
     spectralSource source=fingerprint);
 
     // This converts a unix timestamp to a string formatted as YYYY.MM.DD hh:mm:ss
-    String timeToStringDot(time_t time);
+    static String timeToStringDot(time_t time);
 
     // This converts a unix timestamp to a string formatted as YYYY.MM.DD hh:mm:ss
-    String timeToStringDash(time_t time);
+    static String timeToStringDash(time_t time);
 
 private:
     // This just makes a two digit number with a preceeding 0 if necessary
-    String Str2Digit(int value);
+    static String Str2Digit(int value);
 
     // The internal link to the s::can class instance
     scan *_scanMB;
