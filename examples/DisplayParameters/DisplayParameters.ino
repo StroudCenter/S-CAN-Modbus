@@ -9,12 +9,12 @@ a small OLED screen.
 // Include the base required libraries
 // ---------------------------------------------------------------------------
 #include <Arduino.h>
-#include <scanModbus.h>
 #include <Wire.h>  // For the I2C for the OLED display
 #include <AMAdafruit_GFX.h>  // For the OLED display
 #include <SDL_Arduino_SSD1306.h>  // For the OLED display
-#include <scanAnapro.h>
 #include <SdFat.h> // To communicate with the SD card
+#include <scanModbus.h>
+#include <scanAnapro.h>
 
 // ---------------------------------------------------------------------------
 // Set up the sensor specific information
@@ -24,23 +24,31 @@ a small OLED screen.
 // Define how often you want to log
 bool startLogger = true;  // if you want to use this program to start logging
 uint32_t logging_interval_minutes = 2L;
+uint16_t logging_interval_seconds = round(logging_interval_minutes*60);
 uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
+
+
+// Define the cleaning parameters
+uint16_t cleaning_interval_minutes = 360;  // how frequently cleaning should happen
+uint16_t cleaning_interval_seconds = round(cleaning_interval_minutes*60);
+uint8_t cleaning_duration_seconds = 1;  // the amount of time the cleaning valve is open
+uint8_t cleaning_wait_seconds = 20;  // the delay between the air blast and the measurement
 
 // Define the button you will press to begin the program
 const uint8_t buttonPin = 21;
 
-// Define the sensor's modbus address
-byte modbusAddress = 0x04;  // The sensor's modbus address, or SlaveID
-// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
-
-// Define pin number variables
+// Define enable pin
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
                           // on the RS485 adapter, if applicable (else, -1)
 
+// Define the spectro::lyzer's modbus address
+byte specModbusAddress = 0x04;
+// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
+
 // Construct the S::CAN modbus instance
-scan sensor;
+scan spectro;
 // Construct the "ana::pro" instance for printing formatted strings
-anapro sensorPr(&sensor);
+anapro spectroPr(&spectro);
 bool isSpec;  // as opposed to a controller with ana::gate
 
 // Set up the OLED display
@@ -60,7 +68,7 @@ static char fpFileName0[25];
 
 void startFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
-    time_t currentTime = sensor.getSystemTime();
+    time_t currentTime = spectro.getSystemTime();
 
     // Check if the start time is within a minute of the last file, to avoid having
     // many files with nearly-but-not-quite identical file names just a second or two off
@@ -68,7 +76,7 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     else if (fileStartTime == 0) fileStartTime = currentTime;
 
     String filename = "";
-    filename += sensorPr.timeToStringDash(fileStartTime);
+    filename += spectroPr.timeToStringDash(fileStartTime);
     if (extension == "fp")
     {
         filename += "_";
@@ -107,13 +115,13 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     // Write the header
     if (extension == "fp")
     {
-        sensorPr.printFingerprintHeader(file, "\t", source);
-        sensorPr.printFingerprintHeader(Serial, "\t", source);
+        spectroPr.printFingerprintHeader(file, "\t", source);
+        spectroPr.printFingerprintHeader(Serial, "\t", source);
     }
     else
     {
-        sensorPr.printParameterHeader(file);
-        sensorPr.printParameterHeader(Serial);
+        spectroPr.printParameterHeader(file);
+        spectroPr.printParameterHeader(Serial);
     }
 
     //Close the file to save it
@@ -130,7 +138,7 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     // Check that the file is less than 2MB, else create a new one
     else if (file.size() > 2000000L) startFile(file, extension, filenameBuffer);
 
-    time_t currentTime = sensor.getSystemTime();
+    time_t currentTime = spectro.getSystemTime();
 
     // Open the file in write mode
     file.open(filenameBuffer, O_WRITE | O_AT_END);
@@ -152,13 +160,13 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     // Write the data
     if (extension == "fp")
     {
-        sensorPr.printFingerprintDataRow(file, "\t", source);
-        sensorPr.printFingerprintDataRow(Serial, "\t", source);
+        spectroPr.printFingerprintDataRow(file, "\t", source);
+        spectroPr.printFingerprintDataRow(Serial, "\t", source);
     }
     else
     {
-        sensorPr.printParameterDataRow(file);
-        sensorPr.printParameterDataRow(Serial);
+        spectroPr.printParameterDataRow(file);
+        spectroPr.printParameterDataRow(Serial);
     }
 
     //Close the file to save it
@@ -177,8 +185,7 @@ void setup()
     // The default baud rate for the spectro::lyzer is 38400, 8 data bits, odd parity, 1 stop bit
 
     // Start up the sensor
-    // sensor.begin(modbusAddress, &modbusSerial, DEREPin);
-    sensor.begin(modbusAddress, Serial1, DEREPin);
+    spectro.begin(specModbusAddress, Serial1, DEREPin);
 
     // Start the OLED
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C, false);
@@ -188,14 +195,14 @@ void setup()
     display.setCursor(0,0);
 
     // Turn on debugging
-    // sensor.setDebugStream(&Serial);
+    // spectro.setDebugStream(&Serial);
 
     // Start up note
     display.println("S::CAN Spect::lyzer\nData Viewing\n");
     display.display();
     delay(2000);
 
-    // Allow the sensor and converter to warm up
+    // Allow the RS485 adapter to warm up
     if (buttonPin > 0)
     {
         display.print("Push the button\non pin ");
@@ -206,13 +213,15 @@ void setup()
         delay(500);
     }
 
-    if (sensor.getModelType() == 0x0603) isSpec = false;
+    if (spectro.getModelType() == 0x0603) isSpec = false;
     else isSpec = true;
 
     if (isSpec && startLogger)
     {
         // Turn off logging just in case it had been on.
-        sensor.setLoggingMode(1);
+        // The set-up cannot be changed while in logging mode.
+        spectro.setLoggingMode(1);
+
         // Re-set the logging interval
         display.clearDisplay();
         display.setCursor(0,0);
@@ -220,7 +229,37 @@ void setup()
         display.print(logging_interval_minutes);
         display.println(" minute[s]");
         display.display();
-        sensor.setMeasInterval(logging_interval_minutes*60);
+        spectro.setMeasInterval(logging_interval_seconds);
+        delay(2000);
+
+        // Set the cleaning interval
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.println("Set the cleaning interval to ");
+        display.print(cleaning_interval_minutes);
+        display.println(" minute[s]");
+        display.display();
+        spectro.setCleaningInterval(cleaning_interval_seconds);
+        delay(2000);
+
+        // Set the cleaning duration (the amount of time the valve is open)
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.println("Set the cleaning duration to ");
+        display.print(cleaning_duration_seconds);
+        display.println(" second[s]");
+        display.display();
+        spectro.setCleaningDuration(cleaning_duration_seconds);
+        delay(2000);
+
+        // Set the cleaning wait (the delay between the air blast and the measurement)
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.println("Set the cleaning interval to ");
+        display.print(cleaning_wait_seconds);
+        display.println(" second[s]");
+        display.display();
+        spectro.setCleaningWait(cleaning_wait_seconds);
         delay(2000);
     }
     else if (isSpec)
@@ -228,45 +267,12 @@ void setup()
         display.clearDisplay();
         display.setCursor(0,0);
         display.print("Current measurement interval:\n");
-        display.print(sensor.getMeasInterval());
+        display.print(spectro.getMeasInterval());
         display.println(" seconds");
         display.display();
     }
 
-    if (isSpec && startLogger)
-    {
-        // Wait for an even interval of the logging interval to start the logging
-        uint32_t now = sensor.getSystemTime();
-        uint32_t secToWait = now % (logging_interval_minutes*60);
-        display.clearDisplay();
-        display.setCursor(0,0);
-        display.print("Current time is\n");
-        display.println(anapro::timeToStringDot(now));
-        display.print("\nWaiting ");
-        display.print(secToWait);
-        display.println(" seconds to begin logging at an even interval");
-        display.display();
-        delay((secToWait*1000) - 500);  // send the command half a second early
-
-        display.clearDisplay();
-        display.setCursor(0,0);
-        display.println("Turning on Logging");
-        sensor.setLoggingMode(0);
-        display.display();
-        delay(2000);
-
-        display.clearDisplay();
-        display.setCursor(0,0);
-        display.println("Waiting for spectro::lyser to be ready after measurement.");
-        display.display();
-        // delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
-        // while (sensor.getParameterTime() == 0){};
-        // display.println((millis() - now));
-        delay(55000);
-    }
-    else while (sensor.getParameterTime() == 0){};
-
-    // Initialise the SD card while waiting for registers to be ready
+    // Initialise the SD card
     if (!sd.begin(SDCardPin, SPI_FULL_SPEED))
     {
         Serial.println(F("Error: SD card failed to initialize or is missing."));
@@ -280,6 +286,36 @@ void setup()
         startFile(parFile, "par", parFileName);
         startFile(fpFile0, "fp", fpFileName0, fingerprint);
     }
+
+    if (isSpec && startLogger)
+    {
+        // Wait for an even interval of the logging interval to start the logging
+        uint32_t now = spectro.getSystemTime();
+        uint32_t secToWait = logging_interval_seconds - (now % logging_interval_seconds);
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.print("Current time is\n");
+        display.println(anapro::timeToStringDot(now));
+        display.print("\nWaiting ");
+        display.print(secToWait);
+        display.println(" seconds to begin logging at an even interval");
+        display.display();
+        delay((secToWait*1000) - 500);  // send the command half a second early
+
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.println("Turning on Logging");
+        spectro.setLoggingMode(0);
+        display.display();
+        delay(2000);
+
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.println("Waiting for spectro::lyser to be ready after measurement.");
+        display.display();
+        delay(55000);
+    }
+    else while (spectro.getParameterTime() == 0){};
 }
 
 // ---------------------------------------------------------------------------
@@ -300,18 +336,18 @@ void loop()
 
     display.clearDisplay();
     display.setCursor(0,0);
-    display.print(anapro::timeToStringDot(sensor.getParameterTime()));
+    display.print(anapro::timeToStringDot(spectro.getParameterTime()));
     display.println();
     display.display();
 
     // Print values one at a time
-    for (int i = 1; i < sensor.getParameterCount()+1; i++)
+    for (int i = 1; i < spectro.getParameterCount()+1; i++)
     {
-        display.print(sensor.getParameterName(i));
+        display.print(spectro.getParameterName(i));
         display.print(" - ");
-        display.print(sensor.getParameterValue(i));
+        display.print(spectro.getParameterValue(i));
         display.print(" ");
-        display.print(sensor.getParameterUnits(i));
+        display.print(spectro.getParameterUnits(i));
         display.println();
         display.display();
     }

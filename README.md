@@ -12,6 +12,7 @@ _______
 Note:  Only change one setting at a time.  Ie., first change the serial baud rate, disconnect and reconnect the spec, then change the parity in a separate modbus call.
 - Sensor modbus address
 - Serial port settings (baudrate/parity)
+- Current device time
 - Initiating logging mode (when communicating directly with spectro::lyser, undocumented)
 - Setting the measurement interval (when communicating directly with spectro::lyser)
 - Opening and closing the cleaning valve (when communicating directly with spectro::lyser)
@@ -25,7 +26,6 @@ Note:  Only change one setting at a time.  Ie., first change the serial baud rat
 ## Further specto::lyzer settings accessible via modbus
 These settings are accessible, and _theoretically_ changable, via modbus, but attempting to use modbus rather than ana::pro/moni::tools to change these settings is most likely going to lead to trouble.
 - Current scan::point name
-- Current device time
 - Curernt parameter names, units, limits, and local calibrations (partially documented)
 - Current global calibration name (undocumented)
 - Current reference information, including all measurement parameters and absorbances of all stored references (varys by firmware, undocumented)

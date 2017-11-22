@@ -19,9 +19,9 @@ rather than using any other internal or external clock.
 // Include the base required libraries
 // ---------------------------------------------------------------------------
 #include <Arduino.h>
+#include <SdFat.h> // To communicate with the SD card
 #include <scanModbus.h>
 #include <scanAnapro.h>
-#include <SdFat.h> // To communicate with the SD card
 
 // ---------------------------------------------------------------------------
 // Set up the sensor specific information
@@ -31,24 +31,31 @@ rather than using any other internal or external clock.
 // Define how often you want to log
 bool startLogger = false;  // if you want to use this program to start logging
 uint32_t logging_interval_minutes = 2L;
+uint16_t logging_interval_seconds = round(logging_interval_minutes*60);
 uint32_t delay_ms = 1000L*60L*logging_interval_minutes;
+
+
+// Define the cleaning parameters
+uint16_t cleaning_interval_minutes = 360;  // how frequently cleaning should happen
+uint16_t cleaning_interval_seconds = round(cleaning_interval_minutes*60);
+uint8_t cleaning_duration_seconds = 1;  // the amount of time the cleaning valve is open
+uint8_t cleaning_wait_seconds = 20;  // the delay between the air blast and the measurement
 
 // Define the button you will press to begin the program
 const uint8_t buttonPin = 21;
 
-// Define the sensor's modbus address
-byte modbusAddress = 0x04;  // The sensor's modbus address, or SlaveID
-// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
-
-// Define pin number variables
+// Define enable pin
 const int DEREPin = -1;   // The pin controlling Recieve Enable and Driver Enable
                           // on the RS485 adapter, if applicable (else, -1)
 
+// Define the spectro::lyzer's modbus address
+byte specModbusAddress = 0x04;
+// The default address seems to be 0x04, at 38400 baud, 8 data bits, odd parity, 1 stop bit.
+
 // Construct the S::CAN modbus instance
-scan sensor;
+scan spectro;
 // Construct the "ana::pro" instance for printing formatted strings
-anapro sensorPr(&sensor);
-static time_t lastSampleTime;
+anapro spectroPr(&spectro);
 bool isSpec;  // as opposed to a controller with ana::gate
 
 // A global variable for the filename
@@ -66,7 +73,7 @@ static char fpFileName0[25], fpFileName1[25], fpFileName2[25], fpFileName3[25],
 
 void startFile(File file, String extension, char filenameBuffer[], spectralSource source=fingerprint)
 {
-    time_t currentTime = sensor.getSystemTime();
+    time_t currentTime = spectro.getSystemTime();
 
     // Check if the start time is within a minute of the last file, to avoid having
     // many files with nearly-but-not-quite identical file names just a second or two off
@@ -74,7 +81,7 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     else if (fileStartTime == 0) fileStartTime = currentTime;
 
     String filename = "";
-    filename += sensorPr.timeToStringDash(fileStartTime);
+    filename += spectroPr.timeToStringDash(fileStartTime);
     if (extension == "fp")
     {
         filename += "_";
@@ -113,13 +120,13 @@ void startFile(File file, String extension, char filenameBuffer[], spectralSourc
     // Write the header
     if (extension == "fp")
     {
-        sensorPr.printFingerprintHeader(file, "\t", source);
-        sensorPr.printFingerprintHeader(Serial, "\t", source);
+        spectroPr.printFingerprintHeader(file, "\t", source);
+        spectroPr.printFingerprintHeader(Serial, "\t", source);
     }
     else
     {
-        sensorPr.printParameterHeader(file);
-        sensorPr.printParameterHeader(Serial);
+        spectroPr.printParameterHeader(file);
+        spectroPr.printParameterHeader(Serial);
     }
 
     //Close the file to save it
@@ -139,7 +146,7 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     Serial.print(F("Writing to file "));
     Serial.println(filenameBuffer);
 
-    time_t currentTime = sensor.getSystemTime();
+    time_t currentTime = spectro.getSystemTime();
 
     // Open the file in write mode
     file.open(filenameBuffer, O_WRITE | O_AT_END);
@@ -161,13 +168,13 @@ void writeToFile(File file, String extension, char filenameBuffer[], spectralSou
     // Write the data
     if (extension == "fp")
     {
-        sensorPr.printFingerprintDataRow(file, "\t", source);
-        sensorPr.printFingerprintDataRow(Serial, "\t", source);
+        spectroPr.printFingerprintDataRow(file, "\t", source);
+        spectroPr.printFingerprintDataRow(Serial, "\t", source);
     }
     else
     {
-        sensorPr.printParameterDataRow(file);
-        sensorPr.printParameterDataRow(Serial);
+        spectroPr.printParameterDataRow(file);
+        spectroPr.printParameterDataRow(Serial);
     }
 
     //Close the file to save it
@@ -189,16 +196,15 @@ void setup()
     // The default baud rate for the spectro::lyzer is 38400, 8 data bits, odd parity, 1 stop bit
 
     // Start up the sensor
-    // sensor.begin(modbusAddress, &modbusSerial, DEREPin);
-    sensor.begin(modbusAddress, Serial1, DEREPin);
+    spectro.begin(specModbusAddress, Serial1, DEREPin);
 
     // Turn on debugging
-    // sensor.setDebugStream(&Serial);
+    // spectro.setDebugStream(&Serial);
 
     // Start up note
     Serial.println("S::CAN Spect::lyzer Data Recording");
 
-    // Allow the sensor and converter to warm up
+    // Allow the RS485 adapter to warm up
     if (buttonPin > 0)
     {
         Serial.print("Communication will begin after pushing the button connected to pin ");
@@ -208,61 +214,58 @@ void setup()
     }
     else
     {
-        // Allow the sensor and converter to warm up
         Serial.println("Waiting for sensor and adapter to be ready.");
         delay(500);
     }
 
-    if (sensor.getModelType() == 0x0603) isSpec = false;
+    if (spectro.getModelType() == 0x0603) isSpec = false;
     else isSpec = true;
 
     if (isSpec && startLogger)
     {
         // Turn off logging just in case it had been on.
-        sensor.setLoggingMode(1);
-        // Re-set the logging interval
+        // The set-up cannot be changed while in logging mode.
+        spectro.setLoggingMode(1);
+
+        // Set the logging interval
         Serial.println("Set the measurement interval to ");
         Serial.print(logging_interval_minutes);
         Serial.println(" minute[s]");
-        sensor.setMeasInterval(logging_interval_minutes*60);
+        spectro.setMeasInterval(logging_interval_seconds);
+        delay(500);
+
+        // Set the cleaning interval
+        Serial.println("Set the cleaning interval to ");
+        Serial.print(cleaning_interval_minutes);
+        Serial.println(" minute[s]");
+        spectro.setCleaningInterval(cleaning_interval_seconds);
+        delay(500);
+
+        // Set the cleaning duration (the amount of time the valve is open)
+        Serial.println("Set the cleaning duration to ");
+        Serial.print(cleaning_duration_seconds);
+        Serial.println(" second[s]");
+        spectro.setCleaningDuration(cleaning_duration_seconds);
+        delay(500);
+
+        // Set the cleaning wait (the delay between the air blast and the measurement)
+        Serial.println("Set the cleaning interval to ");
+        Serial.print(cleaning_wait_seconds);
+        Serial.println(" second[s]");
+        spectro.setCleaningWait(cleaning_wait_seconds);
+        delay(500);
     }
     else if (isSpec)
     {
         Serial.print("Current measurement interval is: ");
-        Serial.print(sensor.getMeasInterval());
+        Serial.print(spectro.getMeasInterval());
         Serial.println(" seconds");
     }
 
     // Print out the device setup
-    sensor.printSetup(Serial);
-    Serial.println("=======================");
-    Serial.println("=======================");
+    spectro.printSetup(Serial);
 
-    if (isSpec && startLogger)
-    {
-        // Wait for an even interval of the logging interval to start the logging
-        uint32_t now = sensor.getSystemTime();
-        uint32_t secToWait = now % (logging_interval_minutes*60);
-        Serial.print("Current time is ");
-        Serial.print(anapro::timeToStringDot(now));
-        Serial.print("Waiting ");
-        Serial.print(secToWait);
-        Serial.println(" seconds to begin logging at an even interval");
-        delay((secToWait*1000) - 500);  // send the command half a second early
-
-        Serial.println("Turning on Logging");
-        sensor.setLoggingMode(0);
-        Serial.println("Waiting for spectro::lyser to be ready after measurement.");
-        delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
-
-        // delay(21000L);  // The spec is just "busy" and cannot communicate for ~21 seconds
-        // while (sensor.getParameterTime() == 0){};
-        // display.println((millis() - now));
-        delay(55000);
-    }
-    else while (sensor.getParameterTime() == 0){};
-
-    // Initialise the SD card while waiting for registers to be ready
+    // Initialise the SD card
     if (!sd.begin(SDCardPin, SPI_FULL_SPEED))
     {
         Serial.println(F("Error: SD card failed to initialize or is missing."));
@@ -286,6 +289,25 @@ void setup()
             // startFile(fpFile7, "fp", fpFileName7, other);
         }
     }
+
+    if (isSpec && startLogger)
+    {
+        // Wait for an even interval of the logging interval to start the logging
+        uint32_t now = spectro.getSystemTime();
+        uint32_t secToWait = logging_interval_seconds - (now % logging_interval_seconds);
+        Serial.print("Current time is ");
+        Serial.println(anapro::timeToStringDot(now));
+        Serial.print("Waiting ");
+        Serial.print(secToWait);
+        Serial.println(" seconds to begin logging at an even interval");
+        delay((secToWait*1000) - 500);  // send the command half a second early
+
+        Serial.println("Turning on Logging");
+        spectro.setLoggingMode(0);
+        Serial.println("Waiting for spectro::lyser to be ready after measurement.");
+        delay(55000);
+    }
+    else while (spectro.getParameterTime() == 0){};
 }
 
 // ---------------------------------------------------------------------------
@@ -304,13 +326,11 @@ void loop()
     }
     else  // skip everything else if there's no SD card, otherwise it might hang
     {
-        Serial.print(F("Successfully connected to SD Card with card/slave select on pin "));
-        Serial.println(SDCardPin);
 
-        sensor.wakeSpec();
+        spectro.wakeSpec();
         writeToFile(parFile, "par", parFileName);
         writeToFile(fpFile0, "fp", fpFileName0, fingerprint);
-        if (isSpec)
+        if (isSpec)  // These fields don't exist in ana::pro
         {
             writeToFile(fpFile1, "fp", fpFileName1, compensFP);
             // writeToFile(fpFile2, "fp", fpFileName2, derivFP);

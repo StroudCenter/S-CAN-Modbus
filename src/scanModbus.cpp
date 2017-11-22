@@ -127,7 +127,8 @@ bool scan::printSetup(Stream *stream)
         stream->println(" seconds");
 
         stream->print("Current System Time is: ");
-        stream->print((uint32_t)(modbus.TAI64FromFrame(35)));
+        uint32_t nanoseconds;
+        stream->print((uint32_t)(modbus.TAI64NFromFrame(nanoseconds, 35)));
         stream->println(" seconds past Jan 1, 1970");
 
         stream->print("Measurement interval is: ");
@@ -289,7 +290,10 @@ bool scan::wakeSpec(void)
 // System time is in input registers 104-109
 // (96-bit timestamp in TAI64N format - in this case, ignoring the nanoseconds)
 uint32_t scan::getParameterTime(void)
-{return modbus.TAI64FromRegister(0x04, 104);}
+{
+    uint32_t nanoseconds;
+    return modbus.TAI64NFromRegister(0x04, 104, nanoseconds);
+}
 // This gets any general errors regarding the measured parameters (parameter status public)
 uint16_t scan::getParameterStatus(int parmNumber)
 {
@@ -415,7 +419,8 @@ float scan::getParameterValue(int parmNumber)
 uint32_t scan::getFingerprintTime(spectralSource source)
 {
     int startingReg = 512 + 512*source;
-    return modbus.TAI64FromRegister(0x04, startingReg);
+    uint32_t nanoseconds;
+    return modbus.TAI64NFromRegister(0x04, startingReg, nanoseconds);
 }
 // This returns detector type used for the fingerprint
 detectorType scan::getFingerprintDetectorType(spectralSource source)
@@ -703,11 +708,14 @@ bool scan::setCleaningWait(uint16_t secDuration)
 
 // Functions for the current system time in seconds from Jan 1, 1970
 // System time is in holding registers 16-21
-// (64-bit timestamp in  in TAI64N format - in this case, ignoring the nanoseconds)
+// (64-bit timestamp in TAI64N format - in this case, ignoring the nanoseconds)
 uint32_t scan::getSystemTime(void)
-{return modbus.TAI64FromRegister(0x03, 16);}
+{
+    uint32_t nanoseconds;
+    return modbus.TAI64NFromRegister(0x03, 16, nanoseconds);
+}
 bool scan::setSystemTime(uint32_t currentUnixTime)
-{return modbus.TAI64ToRegister(16, currentUnixTime);}
+{return modbus.TAI64NToRegister(16, currentUnixTime, 0);}
 
 // Functions for the measurement interval in seconds (0 - as fast as possible)
 // Measurement interval is in holding register 22 (1 uint16 register)
@@ -852,7 +860,10 @@ String scan::getCurrentReferenceName(void)
 
 // This returns the index number of the reference in use.
 uint32_t scan::getCurrentReferenceTime(void)
-{return modbus.TAI64FromRegister(0x03, 1512);}
+{
+    uint32_t nanoseconds;
+    return modbus.TAI64NFromRegister(0x03, 1512, nanoseconds);
+}
 
 // This returns a pretty string with the Reference measured.
 String scan::getReferenceName(int refNumber)
@@ -946,7 +957,8 @@ int16_t scan::getReferenceOffset(int refNumber)
 uint32_t scan::getReferenceTime(int refNumber)
 {
     int startingReg = 1536 + 536*refNumber;
-    return modbus.TAI64FromRegister(0x03, startingReg);
+    uint32_t nanoseconds;
+    return modbus.TAI64NFromRegister(0x03, startingReg, nanoseconds);
 }
 
 // This gets abssorbance values in Abs/m for the reference and puts them

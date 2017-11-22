@@ -92,4 +92,4 @@ platformio.ini
 
 # Others
 utils/hammerSpec/*
-Meadow_DO_NoRadio/*
+examples/Meadow_DO_NoRadio/
