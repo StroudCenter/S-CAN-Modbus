@@ -1,6 +1,6 @@
 {
     "name": "scanModbus",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "keywords": "s::can, spectro::lyzer, spectrolyzer, spec, modbus",
     "description": "Arduino library for communicating with S::CAN instruments, either directly with a spectro::lyzer or to any instrument via ana::gate.",
     "repository":
@@ -22,13 +22,39 @@
     "dependencies":
     [
         {
-            "name": "Time"
+            "name": "Time",
+            "library id": "44",
+            "url": "https://github.com/PaulStoffregen/Time",
+            "version": ">=1.5.0",
+            "note": "Arduino time keeping library",
+            "authors": [
+                {
+                    "name": "Michael Margolis"
+                },
+                {
+                    "name": "Paul Stoffregen",
+                    "email": "paul@pjrc.com",
+                    "url": "http://www.pjrc.com",
+                    "maintainer": true
+                }
+            ],
+            "frameworks": "arduino"
         },
         {
-            "name": "SensorModbusMaster"
+            "name": "SensorModbusMaster",
+            "library id": "1824",
+            "url": "https://github.com/EnviroDIY/SensorModbusMaster.git",
+            "version": ">=0.6.2",
+            "note": "EnviroDIY SensorModbusMaster - Arduino library for communicating via modbus with the Arduino acting as the modbus master.",
+            "authors": [
+                "Sara Damiano"
+            ],
+            "frameworks": "arduino",
+            "platforms": "atmelavr, atmelsam"
         },
         {
-            "name": "EnviroDIY_ModularSensors"
+            "name": "EnviroDIY_ModularSensors",
+            "version": "https://github.com/EnviroDIY/ModularSensors.git#215532077b25c2ffa62cb79c1ac0298efe5dbba8"
         }
     ]
 }
