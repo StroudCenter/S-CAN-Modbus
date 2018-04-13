@@ -24,19 +24,12 @@
         {
             "name": "Time",
             "library id": "44",
-            "url": "https://github.com/PaulStoffregen/Time",
+            "url": "https://github.com/PaulStoffregen/Time.git",
             "version": ">=1.5.0",
             "note": "Arduino time keeping library",
             "authors": [
-                {
-                    "name": "Michael Margolis"
-                },
-                {
-                    "name": "Paul Stoffregen",
-                    "email": "paul@pjrc.com",
-                    "url": "http://www.pjrc.com",
-                    "maintainer": true
-                }
+                "Michael Margolis",
+                "Paul Stoffregen"
             ],
             "frameworks": "arduino"
         },
