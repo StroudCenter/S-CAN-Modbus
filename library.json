@@ -51,10 +51,6 @@
             ],
             "frameworks": "arduino",
             "platforms": "atmelavr, atmelsam"
-        },
-        {
-            "name": "EnviroDIY_ModularSensors",
-            "version": "https://github.com/EnviroDIY/ModularSensors.git#215532077b25c2ffa62cb79c1ac0298efe5dbba8"
         }
     ]
 }
