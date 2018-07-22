@@ -48,7 +48,7 @@ getCleaningDuration	KEYWORD2
 setCleaningDuration	KEYWORD2
 getCleaningWait	KEYWORD2
 setCleaningWait	KEYWORD2
-uint32_t getSystemTime	KEYWORD2
+getSystemTime	KEYWORD2
 setSystemTime	KEYWORD2
 getMeasInterval	KEYWORD2
 setMeasInterval	KEYWORD2
